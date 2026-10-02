@@ -1,0 +1,1566 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Анализ обращений ЦОН</title>
+<style>
+:root{
+  color-scheme: light;
+  --bg:#f6f6f4; --surface:#ffffff; --surface-2:#f0efec; --border:#e2e1dc; --grid:#ebeae6;
+  --text:#0b0b0b; --text-2:#52514e; --muted:#7a7974;
+  --accent:#2a78d6; --accent-ink:#ffffff; --accent-soft:#e3eefb;
+  --s-ethics:#eb6834; --s-standard:#2a78d6; --s-system:#1baf7a; --prev:#a3a29c;
+  --good:#0a7d32; --good-soft:#e2f4e7; --bad:#c92a2a; --bad-soft:#fbe5e5; --warn:#9a5800; --warn-soft:#fdf0d8;
+  --mark:#ffe08a;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --bg:#121211; --surface:#1a1a19; --surface-2:#262624; --border:#34342f; --grid:#2a2a27;
+    --text:#ffffff; --text-2:#c3c2b7; --muted:#8f8e86;
+    --accent:#3987e5; --accent-ink:#ffffff; --accent-soft:#1c2c42;
+    --s-ethics:#d95926; --s-standard:#3987e5; --s-system:#199e70; --prev:#6b6a64;
+    --good:#4cc26f; --good-soft:#163020; --bad:#ff7070; --bad-soft:#3a1a1a; --warn:#e8a838; --warn-soft:#352812;
+    --mark:#6b5300;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --bg:#121211; --surface:#1a1a19; --surface-2:#262624; --border:#34342f; --grid:#2a2a27;
+  --text:#ffffff; --text-2:#c3c2b7; --muted:#8f8e86;
+  --accent:#3987e5; --accent-ink:#ffffff; --accent-soft:#1c2c42;
+  --s-ethics:#d95926; --s-standard:#3987e5; --s-system:#199e70; --prev:#6b6a64;
+  --good:#4cc26f; --good-soft:#163020; --bad:#ff7070; --bad-soft:#3a1a1a; --warn:#e8a838; --warn-soft:#352812;
+  --mark:#6b5300;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;}
+button,select,input,textarea{font:inherit;color:inherit}
+h1{font-size:18px;margin:0}
+h2{font-size:17px;margin:0 0 12px}
+h3{font-size:14px;margin:0 0 8px;color:var(--text-2);font-weight:600}
+a{color:var(--accent)}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 20px;background:var(--surface);border-bottom:1px solid var(--border)}
+.topbar .sub{color:var(--muted);font-size:12px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.small{padding:3px 8px;font-size:12px}
+.btn.danger{color:var(--bad)}
+.filters{display:flex;gap:16px;flex-wrap:wrap;align-items:end;padding:10px 20px;background:var(--surface);border-bottom:1px solid var(--border)}
+.filters label{display:flex;flex-direction:column;font-size:12px;color:var(--muted);gap:2px}
+select,input[type=text],input[type=search],input[type=number],textarea{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px}
+textarea{width:100%;resize:vertical}
+.tabs{display:flex;gap:2px;padding:0 16px;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto}
+.tabs button{border:0;background:none;padding:10px 12px;cursor:pointer;color:var(--text-2);border-bottom:2px solid transparent;white-space:nowrap}
+.tabs button.active{color:var(--text);border-bottom-color:var(--accent);font-weight:600}
+main{padding:20px;max-width:1400px;margin:0 auto}
+.tab{display:none}
+.tab.active{display:block}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:16px}
+.grid2 > .card{margin-bottom:0}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+.kpi .k-label{color:var(--text-2);font-size:12px}
+.kpi .k-val{font-size:26px;font-weight:650;margin:2px 0;font-variant-numeric:tabular-nums}
+.kpi .k-val small{font-size:14px;color:var(--muted);font-weight:500}
+.delta{font-size:12px;font-variant-numeric:tabular-nums}
+.delta.up-bad,.delta.down-bad{color:var(--bad)}
+.delta.down-good,.delta.up-good{color:var(--good)}
+.delta.neutral{color:var(--muted)}
+.note{color:var(--muted);font-size:12px}
+.warnbox{background:var(--warn-soft);border:1px solid var(--warn);color:var(--text);border-radius:8px;padding:8px 12px;margin:8px 0;font-size:13px}
+.errbox{background:var(--bad-soft);border:1px solid var(--bad);border-radius:8px;padding:8px 12px;margin:8px 0;font-size:13px}
+.infobox{background:var(--accent-soft);border-radius:8px;padding:10px 12px;margin:0 0 16px;font-size:13px}
+.empty{color:var(--muted);padding:24px;text-align:center}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.toolbar .grow{flex:1}
+.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:8px}
+table{border-collapse:collapse;width:100%;background:var(--surface)}
+th,td{padding:7px 9px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+th{background:var(--surface-2);font-weight:600;font-size:12px;color:var(--text-2);position:sticky;top:0;white-space:nowrap}
+th.sortable{cursor:pointer}
+th.sortable:hover{color:var(--text)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.clickable{cursor:pointer}
+tr.clickable:hover td{background:var(--surface-2)}
+.badge{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;white-space:nowrap;border:1px solid transparent}
+.badge.bad{background:var(--bad-soft);color:var(--bad);border-color:var(--bad)}
+.badge.warn{background:var(--warn-soft);color:var(--warn);border-color:var(--warn)}
+.badge.good{background:var(--good-soft);color:var(--good);border-color:var(--good)}
+.badge.muted{background:var(--surface-2);color:var(--text-2)}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:1px 7px;margin:1px 2px 1px 0;border-radius:10px;font-size:11px;background:var(--surface-2);color:var(--text);white-space:nowrap}
+.chip i{width:8px;height:8px;border-radius:2px;display:inline-block}
+.g-ethics{background:var(--s-ethics)} .g-standard{background:var(--s-standard)} .g-system{background:var(--s-system)} .g-overdue{background:var(--muted)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text-2);margin:0 0 6px}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.legend i.line{height:2px;width:16px;border-radius:0}
+svg.chart{width:100%;height:auto;display:block}
+svg.chart text{fill:var(--text-2);font-size:12px}
+svg.chart text.val{fill:var(--text);font-variant-numeric:tabular-nums}
+svg.chart .axis{fill:var(--muted);font-size:11px}
+svg.chart .gridline{stroke:var(--grid);stroke-width:1}
+svg.chart .hit{fill:transparent}
+svg.chart g.bar-row:hover .hit,svg.chart rect.day-hit:hover{fill:var(--surface-2)}
+svg.chart g[data-click]{cursor:pointer}
+mark{background:var(--mark);color:inherit;border-radius:2px;padding:0 1px}
+.drop{border:2px dashed var(--border);border-radius:12px;padding:28px;text-align:center;background:var(--surface);cursor:pointer}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.filecard{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin:12px 0}
+.filecard header{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.filecard header b{font-size:15px;word-break:break-all}
+.filecard .meta{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text-2);margin-bottom:8px}
+.filecard .opts{display:flex;gap:14px;flex-wrap:wrap;align-items:end;margin-bottom:10px}
+.filecard .opts label{display:flex;flex-direction:column;font-size:12px;color:var(--muted);gap:2px}
+.maptable td{padding:4px 8px}
+.maptable select{max-width:260px}
+.sample{color:var(--muted);font-size:12px;max-width:380px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.req{font-size:11px;color:var(--muted)}
+.req.r1{color:var(--bad)} .req.r2{color:var(--warn)}
+.txt{max-width:520px}
+.txt.clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
+.recs td[contenteditable]{min-width:120px}
+.recs td[contenteditable]:focus{outline:2px solid var(--accent);outline-offset:-2px;background:var(--surface)}
+.recs td.wide{min-width:240px}
+.settings td{padding:5px 6px}
+.settings input[type=text]{width:100%;min-width:120px}
+.settings input[type=number]{width:64px}
+.settings textarea{min-width:220px;font-size:12px}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-start;justify-content:center;padding:4vh 12px;z-index:50}
+#modal.open{display:flex}
+#modal .box{background:var(--surface);border-radius:12px;width:min(1100px,100%);max-height:92vh;display:flex;flex-direction:column;border:1px solid var(--border)}
+#modal .box header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border)}
+#modal .box .body{overflow:auto;padding:12px 16px}
+.appeal{border-bottom:1px solid var(--border);padding:10px 0}
+.appeal .a-meta{font-size:12px;color:var(--text-2);display:flex;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+#tip{position:fixed;pointer-events:none;background:var(--text);color:var(--bg);font-size:12px;padding:5px 8px;border-radius:6px;z-index:60;display:none;max-width:320px;white-space:pre-line}
+.print-only{display:none}
+.print-header{display:none}
+@media (max-width:700px){ main{padding:12px 16px} .topbar,.filters{padding-left:16px;padding-right:16px} }
+@media print{
+  :root,:root[data-theme="dark"]{color-scheme:light;
+    --bg:#fff; --surface:#fff; --surface-2:#f0efec; --border:#d0cfca; --grid:#e5e4e0;
+    --text:#000; --text-2:#3a3936; --muted:#6a6964; --accent:#2a78d6;
+    --s-ethics:#eb6834; --s-standard:#2a78d6; --s-system:#1baf7a; --prev:#a3a29c;
+    --good:#0a7d32; --good-soft:#e2f4e7; --bad:#c92a2a; --bad-soft:#fbe5e5; --warn:#9a5800; --warn-soft:#fdf0d8; --mark:#ffe08a;}
+  body{background:#fff;font-size:11px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .topbar,.filters,.tabs,.no-print,#modal,#tip{display:none !important}
+  main{padding:0;max-width:none}
+  .tab{display:none !important}
+  .tab.printable{display:block !important;break-before:page}
+  .tab.printable.first-print{break-before:auto}
+  .print-header{display:block;margin-bottom:12px;border-bottom:2px solid #000;padding-bottom:6px}
+  .print-only{display:inline}
+  .card,.kpi,.filecard{break-inside:avoid;border-color:#ccc}
+  .table-wrap{overflow:visible;border:0}
+  th{position:static}
+  tr{break-inside:avoid}
+  .txt.clamp{-webkit-line-clamp:unset;display:block}
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div>
+    <h1>Анализ обращений граждан по ЦОН</h1>
+    <div class="sub">e-Otinish и Единый контакт-центр 1414 · данные обрабатываются только в этом браузере</div>
+  </div>
+  <div class="toolbar" style="margin:0">
+    <button class="btn" id="btnDemo" title="Загрузить синтетические данные за два месяца для ознакомления">Демо-данные</button>
+    <button class="btn primary" id="btnPrint">Печать / PDF</button>
+  </div>
+</div>
+<div class="filters" id="filters">
+  <label>Месяц<select id="fMonth"></select></label>
+  <label>Канал<select id="fCh">
+    <option value="all">Все каналы</option>
+    <option value="eotinish">e-Otinish</option>
+    <option value="1414">1414</option>
+  </select></label>
+  <label>Филиал<select id="fBr"><option value="all">Все филиалы</option></select></label>
+  <div class="note" id="filterNote"></div>
+</div>
+<nav class="tabs" id="tabs"></nav>
+<main>
+  <div class="print-header" id="printHeader"></div>
+  <section class="tab" id="tab-upload"></section>
+  <section class="tab printable" id="tab-overview"></section>
+  <section class="tab printable" id="tab-employees"></section>
+  <section class="tab printable" id="tab-deadlines"></section>
+  <section class="tab printable" id="tab-cons"></section>
+  <section class="tab printable" id="tab-services"></section>
+  <section class="tab printable" id="tab-recs"></section>
+  <section class="tab" id="tab-appeals"></section>
+  <section class="tab" id="tab-settings"></section>
+</main>
+<div id="modal"><div class="box"><header><h2 id="modalTitle" style="margin:0"></h2><button class="btn" id="modalClose">Закрыть</button></header><div class="body" id="modalBody"></div></div></div>
+<div id="tip"></div>
+<input type="file" id="fileInput" multiple accept=".xlsx,.csv,.txt" hidden>
+<input type="file" id="settingsInput" accept=".json,application/json" hidden>
+
+<script>
+'use strict';
+/* =====================================================================
+   Справочники и настройки по умолчанию (PRD, раздел 8.3)
+   ===================================================================== */
+const GROUPS = {
+  ethics:   {label:'Этический кодекс',   cls:'g-ethics'},
+  standard: {label:'Стандарт госуслуг',  cls:'g-standard'},
+  system:   {label:'Системная проблема', cls:'g-system'}
+};
+const STATUSES = ['Новая','В работе','Исполнено','Не исполнено'];
+
+const DEFAULT_SETTINGS = {
+  version: 1,
+  types: [
+    {id:'rude', name:'Грубость и неуважительное отношение', short:'Грубость', group:'ethics', weight:3,
+     responsible:'Уполномоченный по этике, руководитель ЦОН', days:10,
+     keywords:['груб','хам','нагруб','накричал','кричал','кричит','повысил голос','повысила голос','повышал голос','повышала голос','неуважительн','неуважени','оскорб','унижа','пренебрежительн','невежлив','некорректн общ','нецензурн','матом','бестактн','швырнул','швырнула','бросил документ','бросила документ'],
+     measures:'Служебная проверка по каждому обращению; при подтверждении — рассмотрение на Совете по этике; беседа с сотрудником и повторный инструктаж по Этическому кодексу; при повторных случаях — дисциплинарное взыскание; выборочный видео- и аудиоконтроль.'},
+    {id:'corruption', name:'Признаки коррупционных проявлений', short:'Коррупция', group:'ethics', weight:5,
+     responsible:'Комплаенс-служба филиала', days:5,
+     keywords:['взятк','вымога','коррупц','за деньги','за плату','за вознагражд','требовал деньг','требовала деньг','требовали деньг','просил деньг','просила деньг','просили деньг','мзд','откат','отблагодар','платно оформ','продают талон','продажа талон','купить талон','посредник'],
+     measures:'Незамедлительная передача обращений в комплаенс-службу; служебная проверка; при подтверждении — передача материалов в уполномоченный орган; решение руководства об отстранении от приёма граждан на время проверки; сведения о сотрудниках не разглашаются до завершения проверки.'},
+    {id:'absence', name:'Отсутствие на рабочем месте, нарушение графика', short:'Отсутствие на месте', group:'ethics', weight:2,
+     responsible:'Руководитель ЦОН, кадровая служба', days:10,
+     keywords:['не было на месте','нет на месте','отсутствовал на рабоч','отсутствовала на рабоч','отсутствовал на месте','отсутствовала на месте','ушел на обед','ушла на обед','ушли на обед','обед раньше','опозда','окно закрыто','окно было закрыто','закрыли окно','разговаривал по телефон','разговаривала по телефон','сидел в телефон','сидела в телефон','личн разговор','ушел раньше','ушла раньше','не по графику'],
+     measures:'Проверка табеля, данных электронной очереди и видеонаблюдения; контроль соблюдения графика перерывов; уведомление кадровой службы; при подтверждении — дисциплинарные меры.'},
+    {id:'refusal', name:'Необоснованный отказ в приёме документов', short:'Отказ в приёме', group:'standard', weight:2,
+     responsible:'Руководитель ЦОН', days:10,
+     keywords:['отказал в прием','отказала в прием','отказали в прием','отказ в прием','отказано в прием','не принял документ','не приняла документ','не приняли документ','не приняли заявлен','отказался принять','отказалась принять','отказались принять','необоснованн отказ','отправили домой'],
+     measures:'Проверка обоснованности отказа по стандарту госуслуги; повторный инструктаж операторов по перечню документов; разбор случаев на планёрке; выборочный контроль отказов.'},
+    {id:'extradocs', name:'Требование документов сверх стандарта', short:'Лишние документы', group:'standard', weight:2,
+     responsible:'Методолог филиала', days:15,
+     keywords:['дополнительн документ','дополнительн справк','лишн документ','лишн справк','сверх стандарт','не предусмотрен стандарт','не предусмотренн стандарт','требовал справк','требовала справк','требовали справк','потребовал справк','потребовала справк','потребовали справк','требуют справк','требовали копи','потребовали копи','потребовали принести'],
+     measures:'Сверка практики приёма со стандартами госуслуг; актуализация памяток и базы знаний; инструктаж сотрудников; информирование граждан о закрытом перечне документов.'},
+    {id:'wait', name:'Длительное ожидание (очередь, линия 1414)', short:'Ожидание', group:'standard', weight:1,
+     responsible:'Руководитель ЦОН, директор филиала', days:30,
+     keywords:['очередь','очереди','очередью','долго жд','долго ожида','ожидани','ждал час','ждала час','ждали час','простоял','простояла','не дозвон','невозможно дозвон','не могу дозвон','линия занята','линия постоянно занята','висел на линии','висела на линии','не берут трубк','одно окно','мало окон'],
+     measures:'Анализ загрузки окон и операторов по часам; перераспределение персонала в пиковые часы; открытие дополнительных окон; для 1414 — пересмотр графика смен и голосового меню; мониторинг среднего времени ожидания.'},
+    {id:'resultdelay', name:'Нарушение срока выдачи результата', short:'Срок выдачи', group:'standard', weight:1,
+     responsible:'Руководитель ЦОН, отдел контроля качества', days:15,
+     keywords:['срок выдач','задерж выдач','задерживают выдач','задерживают документ','не выдали','не выдают','до сих пор не готов','документ не готов','результат не готов','нарушен срок','нарушили срок','срок нарушен','просрочили выдач','жду результат','долго не выдают'],
+     measures:'Выявление этапа задержки (ЦОН, услугодатель, ИС); контроль сроков выдачи по журналу; эскалация услугодателю; информирование граждан о статусе заявки.'},
+    {id:'consult', name:'Неверная консультация, некомпетентность', short:'Неверная консультация', group:'standard', weight:1,
+     responsible:'Методолог филиала, руководитель ЦОН', days:30,
+     keywords:['неверн консультац','неправильн консультац','неверн информац','неправильн информац','недостоверн информац','некомпетент','не смог объясн','не смогла объясн','не смогли объясн','не смог ответ','не смогла ответ','не знает','не знают','ввел в заблужд','ввела в заблужд','ввели в заблужд','дезинформ','противоречив информац','разн информац','не разъясн','не проконсультир','отправляют из окна в окно','гоняют'],
+     measures:'Актуализация базы знаний и скриптов 1414; обучение и тестирование сотрудников по проблемным услугам; наставничество для сотрудников с повторными жалобами; прослушивание звонков.'},
+    {id:'docerrors', name:'Ошибки в оформлении документов', short:'Ошибки оформления', group:'standard', weight:1,
+     responsible:'Руководитель ЦОН', days:15,
+     keywords:['ошибк в документ','ошибк в справк','ошибк в фамил','ошибк в имен','ошибк в дат','ошибк в данн','ошибк в заявлен','ошибк при оформл','допущена ошибк','допустил ошибк','допустила ошибк','неправильно оформ','неверно оформ','опечатк','неверно указ','неправильно указ','перепутал','перепутала','перепутали'],
+     measures:'Перепроверка и исправление оформленных документов без повторного визита гражданина; двойной контроль данных перед подачей; обучение по проблемным услугам.'},
+    {id:'tech', name:'Технические сбои', short:'Технические сбои', group:'system', weight:0,
+     responsible:'ИТ-служба филиала', days:15,
+     keywords:['сбой','сбоя','сбои','сбоем','сбоев','сбою','система не работ','не работает систем','не работала систем','систем завис','программа не работ','не работает программ','база не работ','не работает баз','нет связи','нет интернет','технич неполад','технич проблем','не работает эцп','эцп не работ','не работает терминал','терминал не работ','завис'],
+     measures:'Регистрация инцидентов и передача в ИТ-службу и оператору ИС; учёт времени простоя; резервный порядок приёма документов при сбоях; информирование граждан. Персональная вина сотрудников не устанавливается.'}
+  ],
+  overdue: {name:'Нарушение срока рассмотрения обращения', responsible:'Отдел документооборота и контроля', days:10,
+    measures:'Контроль сроков рассмотрения по журналу обращений; напоминания исполнителям за 2 дня до контрольного срока; разбор причин просрочек с исполнителями; учёт просрочек при оценке работы исполнителей.'},
+  growth: {pct:30, min:5, responsible:'Методолог филиала, отдел контроля качества', days:15,
+    measures:'Анализ причин роста: изменения стандарта, сбои ИС, сезонность, новые требования; доведение изменений до сотрудников ЦОН и операторов 1414; актуализация базы знаний.'},
+  repeat: {responsible:'Руководители ЦОН, отдел контроля качества', days:10,
+    measures:'Взять повторных заявителей на контроль; проверить полноту и качество ответов на первичные обращения; при необходимости — личный приём руководителем ЦОН.'},
+  confirmYes:['обоснован','подтвержд','подтвердил','приняты меры','меры приняты','удовлетворен'],
+  confirmNo:['необоснован','не обоснован','не подтверд','не подтвержд','не нашл подтвержд','отказано','отказать','отклонен','не удовлетвор']
+};
+
+/* Поля выгрузки обращений (PRD 7.1). req: 1 — обязательно, 2 — критично/желательно, 3 — опционально */
+const FIELDS = [
+  {key:'date',      label:'Дата поступления',          req:1, kw:['дата поступ','дата регистр','дата обращ','дата звонка','дата и время звонка','дата создан','дата']},
+  {key:'text',      label:'Текст обращения',           req:1, kw:['текст','содержан','суть','описани','краткое содерж','комментари']},
+  {key:'employee',  label:'Сотрудник ЦОН (на кого)',   req:2, kw:['сотрудник цон','на кого','сотрудник','оператор','фио работник','работник цон']},
+  {key:'con',       label:'ЦОН / отдел',               req:2, kw:['цон','отдел','подразделен','центр обслуж','наименование цон']},
+  {key:'branch',    label:'Филиал / регион',           req:2, kw:['филиал','регион','област']},
+  {key:'service',   label:'Госуслуга / тематика',      req:2, kw:['госуслуг','услуг','тематик','тема','категори','классификац']},
+  {key:'channel',   label:'Канал',                     req:2, kw:['канал','источник поступ','источник']},
+  {key:'kind',      label:'Вид обращения',             req:3, kw:['вид обращ','тип обращ','форма обращ']},
+  {key:'executor',  label:'Исполнитель обращения',     req:3, kw:['исполнитель','ответственный исполн','рассматривающ']},
+  {key:'status',    label:'Статус',                    req:3, kw:['статус','состояни']},
+  {key:'deadline',  label:'Контрольный срок',          req:3, kw:['контрольный срок','срок рассмотр','срок исполн','плановая дата','срок']},
+  {key:'answer',    label:'Дата ответа',               req:3, kw:['дата ответа','дата исполн','дата закрыт','дата рассмотр','фактическ']},
+  {key:'result',    label:'Результат рассмотрения',    req:2, kw:['результат рассмотр','результат','итог рассмотр','решение']},
+  {key:'applicant', label:'Заявитель (ИИН / телефон)', req:3, kw:['заявител','иин','телефон','номер телефона','абонент']},
+  {key:'number',    label:'Номер обращения',           req:3, kw:['номер обращ','рег. номер','регистрационный номер','№ обращ','номер','№']}
+];
+const WFIELDS = [
+  {key:'name',  label:'ФИО сотрудника',                    req:1, kw:['фио','сотрудник','оператор','работник']},
+  {key:'count', label:'Количество обслуживаний / звонков', req:1, kw:['количеств','кол-во','обслуж','звонк','нагрузк','принят','талон','число']},
+  {key:'month', label:'Месяц (если есть)',                 req:3, kw:['месяц','период']}
+];
+const REQ_LABEL = {1:['обязательно','r1'], 2:['желательно','r2'], 3:['опционально','']};
+
+/* =====================================================================
+   Утилиты
+   ===================================================================== */
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm = s => String(s == null ? '' : s).toLowerCase().replace(/ё/g, 'е');
+const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const clean = s => String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
+const fmtInt = n => Math.round(n).toLocaleString('ru-RU');
+const fmt1 = n => n.toLocaleString('ru-RU', {maximumFractionDigits:1, minimumFractionDigits:1});
+const pct = (a, b) => b ? Math.round(a / b * 1000) / 10 : 0;
+const MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const MONTH_STEMS = ['янв','фев','мар','апр','ма','июн','июл','авг','сен','окт','ноя','дек'];
+const pad2 = n => String(n).padStart(2, '0');
+const monthKey = d => d.getFullYear() + '-' + pad2(d.getMonth() + 1);
+const monthLabel = k => { if (!k) return ''; const [y, m] = k.split('-'); return MONTHS[+m - 1] + ' ' + y; };
+const prevMonthKey = k => { const [y, m] = k.split('-').map(Number); return m === 1 ? (y - 1) + '-12' : y + '-' + pad2(m - 1); };
+const daysInMonth = k => { const [y, m] = k.split('-').map(Number); return new Date(y, m, 0).getDate(); };
+const fmtDate = d => d ? pad2(d.getDate()) + '.' + pad2(d.getMonth() + 1) + '.' + d.getFullYear() : '';
+const dayNum = d => Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 864e5);
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const TODAY = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; })();
+function plural(n, one, few, many) {
+  const a = Math.abs(n) % 100, b = a % 10;
+  if (a > 10 && a < 20) return many;
+  if (b > 1 && b < 5) return few;
+  if (b === 1) return one;
+  return many;
+}
+function cellStr(v) {
+  if (v == null) return '';
+  if (typeof v === 'number') return Number.isInteger(v) ? String(v) : String(v);
+  return String(v).trim();
+}
+function trunc(s, n) { s = String(s); return s.length > n ? s.slice(0, n - 1) + '…' : s; }
+function signed(n, digits) {
+  const v = digits ? fmt1(Math.abs(n)) : fmtInt(Math.abs(n));
+  return n > 0 ? '+' + v : n < 0 ? '−' + v : '0';
+}
+
+/* Распознавание дат (FR-6) */
+function parseDate(v) {
+  if (v == null || v === '') return null;
+  if (v instanceof Date) return isNaN(v) ? null : v;
+  let n = typeof v === 'number' ? v : (/^\d{4,5}([.,]\d+)?$/.test(String(v).trim()) ? parseFloat(String(v).replace(',', '.')) : NaN);
+  if (!isNaN(n)) {
+    if (n < 20000 || n > 80000) return null;
+    const u = new Date(Date.UTC(1899, 11, 30) + Math.round(n * 864e5));
+    return new Date(u.getUTCFullYear(), u.getUTCMonth(), u.getUTCDate(), u.getUTCHours(), u.getUTCMinutes());
+  }
+  const s = String(v).trim();
+  let m = s.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4}|\d{2})(?![\d])(?:[\sT,]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+  let y, mo, d, h = 0, mi = 0;
+  if (m) { d = +m[1]; mo = +m[2]; y = +m[3]; if (y < 100) y += 2000; h = +(m[4] || 0); mi = +(m[5] || 0); }
+  else {
+    m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[\sT](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+    if (!m) return null;
+    y = +m[1]; mo = +m[2]; d = +m[3]; h = +(m[4] || 0); mi = +(m[5] || 0);
+  }
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  const r = new Date(y, mo - 1, d, h, mi);
+  return r.getDate() === d ? r : null;
+}
+function parseMonth(v) {
+  const d = parseDate(v);
+  if (d) return monthKey(d);
+  const s = norm(cellStr(v));
+  let m = s.match(/^(\d{1,2})[.\/-](\d{4})$/); if (m) return m[2] + '-' + pad2(+m[1]);
+  m = s.match(/^(\d{4})-(\d{1,2})$/); if (m) return m[1] + '-' + pad2(+m[2]);
+  const y = s.match(/\d{4}/);
+  if (y) for (let i = 11; i >= 0; i--) if (new RegExp('(^|[^а-я])' + MONTH_STEMS[i]).test(s)) return y[0] + '-' + pad2(i + 1);
+  return null;
+}
+function download(name, blob) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+/* CSV с разделителем «;» и BOM для Excel (FR-28) */
+function downloadCSV(name, header, rows) {
+  const q = v => {
+    v = v == null ? '' : String(v);
+    if (/^[=+@]/.test(v) || /^-[^\d]/.test(v)) v = "'" + v;
+    return /[;"\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  };
+  const txt = '﻿' + [header, ...rows].map(r => r.map(q).join(';')).join('\r\n');
+  download(name, new Blob([txt], {type:'text/csv;charset=utf-8'}));
+}
+
+/* =====================================================================
+   Чтение файлов: CSV (FR-2) и XLSX (первый лист, встроенный распаковщик)
+   ===================================================================== */
+function decodeText(buf) {
+  const u = new Uint8Array(buf);
+  if (u[0] === 0xEF && u[1] === 0xBB && u[2] === 0xBF) return new TextDecoder('utf-8').decode(u.subarray(3));
+  try { return new TextDecoder('utf-8', {fatal:true}).decode(u); }
+  catch (e) { return new TextDecoder('windows-1251').decode(u); }
+}
+function detectDelimiter(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim()).slice(0, 15);
+  let best = ';', bestScore = -1;
+  for (const d of [';', '\t', ',']) {
+    const counts = lines.map(l => { let c = 0, q = false; for (const ch of l) { if (ch === '"') q = !q; else if (ch === d && !q) c++; } return c; });
+    const freq = {};
+    counts.forEach(c => { if (c > 0) freq[c] = (freq[c] || 0) + 1; });
+    let score = 0;
+    for (const k in freq) score = Math.max(score, freq[k] * 1000 + +k);
+    if (score > bestScore) { bestScore = score; best = d; }
+  }
+  return best;
+}
+function parseCSV(text) {
+  const d = detectDelimiter(text);
+  const rows = []; let row = [], f = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; }
+      else f += c;
+    } else if (c === '"' && f === '') q = true;
+    else if (c === d) { row.push(f); f = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(f); rows.push(row); row = []; f = '';
+    } else f += c;
+  }
+  if (f !== '' || row.length) { row.push(f); rows.push(row); }
+  return rows;
+}
+async function unzip(buf) {
+  const dv = new DataView(buf);
+  let eocd = -1;
+  for (let i = buf.byteLength - 22; i >= Math.max(0, buf.byteLength - 65557); i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error('Файл не похож на .xlsx (не найден архив)');
+  const count = dv.getUint16(eocd + 10, true);
+  let p = dv.getUint32(eocd + 16, true);
+  const entries = {};
+  const td = new TextDecoder('utf-8');
+  for (let n = 0; n < count; n++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) break;
+    const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true);
+    const nlen = dv.getUint16(p + 28, true), elen = dv.getUint16(p + 30, true), clen = dv.getUint16(p + 32, true);
+    const lho = dv.getUint32(p + 42, true);
+    const name = td.decode(new Uint8Array(buf, p + 46, nlen)).replace(/^\/+/, '').toLowerCase();
+    entries[name] = {method, csize, lho};
+    p += 46 + nlen + elen + clen;
+  }
+  return async name => {
+    const e = entries[name.replace(/^\/+/, '').toLowerCase()];
+    if (!e) return null;
+    const start = e.lho + 30 + dv.getUint16(e.lho + 26, true) + dv.getUint16(e.lho + 28, true);
+    const data = new Uint8Array(buf, start, e.csize);
+    let out;
+    if (e.method === 0) out = data;
+    else if (e.method === 8) {
+      if (typeof DecompressionStream === 'undefined') throw new Error('Браузер не умеет распаковывать .xlsx — обновите браузер или сохраните файл в CSV');
+      const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+      out = new Uint8Array(await new Response(stream).arrayBuffer());
+    } else throw new Error('Неподдерживаемый метод сжатия в .xlsx');
+    return td.decode(out);
+  };
+}
+const xmlDoc = s => new DOMParser().parseFromString(s, 'application/xml');
+const byTag = (node, tag) => node.getElementsByTagNameNS('*', tag);
+function colIndex(ref) {
+  const m = /^([A-Z]+)/.exec(ref || ''); if (!m) return -1;
+  let n = 0; for (const ch of m[1]) n = n * 26 + ch.charCodeAt(0) - 64;
+  return n - 1;
+}
+async function readXlsx(buf) {
+  const get = await unzip(buf);
+  let sheetPath = 'xl/worksheets/sheet1.xml';
+  const wb = await get('xl/workbook.xml'), rels = await get('xl/_rels/workbook.xml.rels');
+  if (wb && rels) {
+    const sheet = byTag(xmlDoc(wb), 'sheet')[0];
+    const rid = sheet && (sheet.getAttribute('r:id') || sheet.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id'));
+    for (const r of byTag(xmlDoc(rels), 'Relationship')) {
+      if (r.getAttribute('Id') === rid) {
+        const t = r.getAttribute('Target');
+        sheetPath = t.startsWith('/') ? t.slice(1) : 'xl/' + t.replace(/^\.\//, '');
+      }
+    }
+  }
+  const sst = [];
+  const ss = await get('xl/sharedStrings.xml');
+  if (ss) for (const si of byTag(xmlDoc(ss), 'si')) {
+    let s = '';
+    for (const t of byTag(si, 't')) if (t.parentNode.localName !== 'rPh') s += t.textContent;
+    sst.push(s);
+  }
+  const sx = await get(sheetPath);
+  if (!sx) throw new Error('В .xlsx не найден первый лист');
+  const rows = [];
+  for (const r of byTag(xmlDoc(sx), 'row')) {
+    const row = []; let next = 0;
+    for (const c of byTag(r, 'c')) {
+      let ci = colIndex(c.getAttribute('r')); if (ci < 0) ci = next; next = ci + 1;
+      const t = c.getAttribute('t'), vEl = byTag(c, 'v')[0], v = vEl ? vEl.textContent : '';
+      let val;
+      if (t === 's') val = sst[+v] ?? '';
+      else if (t === 'inlineStr') { val = ''; for (const x of byTag(c, 't')) val += x.textContent; }
+      else if (t === 'b') val = v === '1' ? 'ИСТИНА' : 'ЛОЖЬ';
+      else if (t === 'str' || t === 'e' || t === 'd') val = v;
+      else val = v === '' ? '' : Number(v);
+      row[ci] = val;
+    }
+    const rIdx = +(r.getAttribute('r') || rows.length + 1) - 1;
+    while (rows.length < rIdx) rows.push([]);
+    rows.push(Array.from(row, x => x === undefined ? '' : x));
+  }
+  return rows;
+}
+
+/* =====================================================================
+   Заголовки и сопоставление столбцов (FR-3, FR-4, FR-5)
+   ===================================================================== */
+function matchScore(header, kws) {
+  const h = norm(header);
+  let best = 0;
+  for (const k of kws) if (h.includes(k)) best = Math.max(best, k.length);
+  return best;
+}
+function detectHeader(rows) {
+  const allKw = [...FIELDS, ...WFIELDS].flatMap(f => f.kw);
+  let best = -1, bestScore = 0;
+  for (let i = 0; i < Math.min(rows.length, 25); i++) {
+    const cells = rows[i].filter(c => typeof c === 'string' && c.trim());
+    const score = cells.filter(c => c.length < 80 && matchScore(c, allKw) > 0).length;
+    if (score > bestScore) { bestScore = score; best = i; }
+  }
+  if (bestScore >= 2) return best;
+  const i = rows.findIndex(r => r.filter(c => cellStr(c)).length >= 2);
+  return i < 0 ? 0 : i;
+}
+function autoMap(headers, fields) {
+  const pairs = [];
+  headers.forEach((h, ci) => fields.forEach(f => { const s = matchScore(h, f.kw); if (s) pairs.push({ci, f:f.key, s}); }));
+  pairs.sort((a, b) => b.s - a.s || a.ci - b.ci);
+  const map = {}, used = new Set();
+  fields.forEach(f => map[f.key] = -1);
+  for (const p of pairs) if (map[p.f] < 0 && !used.has(p.ci)) { map[p.f] = p.ci; used.add(p.ci); }
+  return map;
+}
+function detectSource(name, map) {
+  const n = norm(name);
+  if (/1414|колл|call|звонк|кц/.test(n)) return '1414';
+  if (/otinish|отиниш|отініш|otinysh/.test(n)) return 'eotinish';
+  if (map.channel >= 0) return 'channel';
+  return 'eotinish';
+}
+const chanToSrc = v => /1414|звон|колл|call|контакт|телеф/.test(norm(v)) ? '1414' : 'eotinish';
+
+function setupFile(f, rows) {
+  f.raw = rows;
+  applyHeaderRow(f, detectHeader(rows));
+  const wl = /нагрузк|workload|обслужен/.test(norm(f.name));
+  f.type = (wl || (f.map.text < 0 && f.map.date < 0 && f.wmap.name >= 0 && f.wmap.count >= 0)) ? 'workload' : 'appeals';
+  f.sourceDetected = detectSource(f.name, f.map);
+  f.source = f.sourceDetected;
+}
+function applyHeaderRow(f, idx) {
+  f.headerIdx = idx;
+  const hr = f.raw[idx] || [];
+  const width = Math.max(0, ...f.raw.slice(idx, idx + 200).map(r => r.length));
+  f.headers = Array.from({length:width}, (_, i) => cellStr(hr[i]) || 'Столбец ' + (i + 1));
+  f.rows = f.raw.slice(idx + 1);
+  f.map = autoMap(f.headers, FIELDS);
+  f.wmap = autoMap(f.headers, WFIELDS);
+}
+
+/* =====================================================================
+   Состояние
+   ===================================================================== */
+const S = {
+  files: [], records: [], workload: {byMonth:{}, any:{}},
+  settings: null, compiled: null,
+  filter: {month:'', ch:'all', br:'all'},
+  recs: {}, version: 0,
+  tab: 'upload',
+  ui: {empSearch:'', empGroup:'all', empSort:'score', empDir:-1, apSearch:'', apType:'all', apLimit:300}
+};
+const LS_KEY = 'conDashboard.settings.v1';
+function loadSettings() {
+  try { const s = JSON.parse(localStorage.getItem(LS_KEY)); if (s && Array.isArray(s.types)) return mergeSettings(s); } catch (e) {}
+  return structuredClone(DEFAULT_SETTINGS);
+}
+function mergeSettings(s) {
+  const d = structuredClone(DEFAULT_SETTINGS);
+  return Object.assign(d, s, {overdue:Object.assign(d.overdue, s.overdue || {}), growth:Object.assign(d.growth, s.growth || {}), repeat:Object.assign(d.repeat, s.repeat || {})});
+}
+function saveSettings() { try { localStorage.setItem(LS_KEY, JSON.stringify(S.settings)); } catch (e) {} }
+
+/* =====================================================================
+   Классификация (FR-8 … FR-12) и индекс риска (8.4)
+   ===================================================================== */
+function kwRegex(kws) {
+  const parts = (kws || []).map(k => norm(k).trim()).filter(Boolean)
+    .map(k => k.split(/\s+/).map(escRe).join('[\\p{L}\\p{N}]*[\\s\\p{P}]+'));
+  if (!parts.length) return null;
+  // Совпадение только с начала слова; захватываем слово до конца для подсветки
+  return new RegExp('(?<![\\p{L}\\p{N}])(?:' + parts.join('|') + ')[\\p{L}\\p{N}]*', 'gu');
+}
+function compileSettings() {
+  const s = S.settings;
+  S.compiled = {
+    types: s.types.map(t => ({...t, re:kwRegex(t.keywords)})),
+    yes: kwRegex(s.confirmYes), no: kwRegex(s.confirmNo)
+  };
+  S.compiled.byId = Object.fromEntries(S.compiled.types.map(t => [t.id, t]));
+}
+function classifyAll() {
+  compileSettings();
+  const C = S.compiled;
+  for (const r of S.records) {
+    const hay = norm(r.text + ' \n ' + r.service);
+    r.v = []; r.hits = {}; r.pv = [];
+    for (const t of C.types) {
+      if (!t.re) continue;
+      const m = hay.match(t.re);
+      if (m) {
+        r.v.push(t.id); r.hits[t.id] = [...new Set(m)];
+        if (t.group !== 'system') r.pv.push(t.id);
+      }
+    }
+    const res = norm(r.result);
+    r.confirm = !res ? 'unk' : (C.no && test(C.no, res)) ? 'no' : (C.yes && test(C.yes, res)) ? 'yes' : 'unk';
+    let score = 0;
+    for (const id of r.pv) score += +C.byId[id].weight || 0;
+    r.score = r.confirm === 'yes' ? score * 2 : score;
+    r.overdue = false; r.overdueDays = 0;
+    if (r.deadline) {
+      const end = r.answer || TODAY;
+      const diff = dayNum(end) - dayNum(r.deadline);
+      if (diff > 0) { r.overdue = true; r.overdueDays = diff; }
+    }
+    const digits = r.applicant.replace(/\D/g, '');
+    r.appKey = digits.length >= 6 ? digits : norm(r.applicant).trim();
+  }
+  S.version++;
+}
+function test(re, s) { re.lastIndex = 0; return re.test(s); }
+function highlight(text) {
+  const n = norm(text), spans = [];
+  for (const t of S.compiled.types) {
+    if (!t.re) continue;
+    t.re.lastIndex = 0; let m;
+    while ((m = t.re.exec(n))) { spans.push([m.index, m.index + m[0].length, t.name]); if (!m[0].length) t.re.lastIndex++; }
+  }
+  spans.sort((a, b) => a[0] - b[0]);
+  let out = '', pos = 0;
+  for (const [a, b, title] of spans) {
+    if (a < pos) continue;
+    out += esc(text.slice(pos, a)) + '<mark title="' + esc(title) + '">' + esc(text.slice(a, b)) + '</mark>';
+    pos = b;
+  }
+  return out + esc(text.slice(pos));
+}
+
+/* =====================================================================
+   Сборка записей из файлов
+   ===================================================================== */
+function rebuild() {
+  const recs = [], wl = {byMonth:{}, any:{}};
+  let id = 0;
+  for (const f of S.files) {
+    f.used = 0; f.skipped = 0; f.months = {}; f.problems = [];
+    if (f.error) continue;
+    if (f.type === 'workload') {
+      const m = f.wmap;
+      if (m.name < 0 || m.count < 0) { f.problems.push('Укажите столбцы «ФИО сотрудника» и «Количество».'); continue; }
+      for (const row of f.rows) {
+        const name = clean(cellStr(row[m.name])), cnt = parseFloat(cellStr(row[m.count]).replace(/\s/g, '').replace(',', '.'));
+        if (!name || !(cnt > 0)) { if (name || cellStr(row[m.count])) f.skipped++; continue; }
+        const k = norm(name), mk = m.month >= 0 ? parseMonth(row[m.month]) : null;
+        const bucket = mk ? (wl.byMonth[mk] = wl.byMonth[mk] || {}) : wl.any;
+        bucket[k] = (bucket[k] || 0) + cnt;
+        f.used++;
+        if (mk) f.months[mk] = (f.months[mk] || 0) + 1;
+      }
+      continue;
+    }
+    const m = f.map;
+    if (m.date < 0) f.problems.push('Не указан столбец «Дата поступления» — файл не учитывается.');
+    if (m.text < 0) f.problems.push('Не указан столбец «Текст обращения» — файл не учитывается.');
+    if (f.problems.length) continue;
+    const g = (row, k) => m[k] >= 0 ? cellStr(row[m[k]]) : '';
+    for (const row of f.rows) {
+      if (!row.some(c => cellStr(c))) continue;
+      const d = parseDate(row[m.date]);
+      if (!d) { f.skipped++; continue; }
+      const src = f.source === 'channel' ? chanToSrc(g(row, 'channel')) : f.source;
+      const mk = monthKey(d);
+      recs.push({
+        id:id++, src, date:d, month:mk, day:d.getDate(),
+        text:g(row, 'text'), employee:clean(g(row, 'employee')), con:clean(g(row, 'con')) || (src === '1414' ? 'Контакт-центр 1414' : ''), branch:clean(g(row, 'branch')),
+        service:clean(g(row, 'service')), kind:g(row, 'kind'), executor:clean(g(row, 'executor')), status:g(row, 'status'),
+        deadline:m.deadline >= 0 ? parseDate(row[m.deadline]) : null, answer:m.answer >= 0 ? parseDate(row[m.answer]) : null,
+        result:g(row, 'result'), applicant:g(row, 'applicant'), number:g(row, 'number'), file:f.name
+      });
+      f.used++; f.months[mk] = (f.months[mk] || 0) + 1;
+    }
+    if (m.employee < 0) f.problems.push('Нет столбца с сотрудником ЦОН — рейтинг сотрудников по этому файлу будет пуст (анализ только по ЦОН).');
+  }
+  S.records = recs; S.workload = wl;
+  classifyAll();
+  refreshFilters();
+  renderAll();
+}
+function workloadOf(nameKey, month) {
+  const bm = S.workload.byMonth[month];
+  if (bm && bm[nameKey] != null) return bm[nameKey];
+  return S.workload.any[nameKey] ?? null;
+}
+
+/* =====================================================================
+   Фильтры и агрегаты
+   ===================================================================== */
+function refreshFilters() {
+  const months = {}, branches = new Set();
+  for (const r of S.records) { months[r.month] = (months[r.month] || 0) + 1; if (r.branch) branches.add(r.branch); }
+  const mk = Object.keys(months).sort().reverse();
+  if (!mk.includes(S.filter.month)) S.filter.month = mk[0] || '';
+  $('#fMonth').innerHTML = mk.length ? mk.map(k => `<option value="${k}" ${k === S.filter.month ? 'selected' : ''}>${monthLabel(k)} (${fmtInt(months[k])})</option>`).join('') : '<option value="">нет данных</option>';
+  const br = [...branches].sort((a, b) => a.localeCompare(b, 'ru'));
+  if (S.filter.br !== 'all' && !br.includes(S.filter.br)) S.filter.br = 'all';
+  $('#fBr').innerHTML = '<option value="all">Все филиалы</option>' + br.map(b => `<option ${b === S.filter.br ? 'selected' : ''}>${esc(b)}</option>`).join('');
+  $('#fCh').value = S.filter.ch;
+}
+function filterRecs(month) {
+  const {ch, br} = S.filter;
+  return S.records.filter(r => r.month === month && (ch === 'all' || r.src === ch) && (br === 'all' || r.branch === br));
+}
+function inc(o, k, n = 1) { o[k] = (o[k] || 0) + n; }
+function stats(recs, month) {
+  const C = S.compiled;
+  const st = {month, total:recs.length, viol:0, ethics:0, standard:0, system:0, confirmed:0, overdue:0,
+    repeatAppeals:0, repeatApplicants:0, byType:{}, typeConfirmed:{}, typeNoEmp:{}, byDay:{}, ch:{},
+    emp:new Map(), con:new Map(), exe:new Map(), svc:new Map(), recs, repeatKeys:new Set(), noEmp:0};
+  const appl = {};
+  for (const r of recs) {
+    const groups = new Set(r.v.map(id => C.byId[id].group));
+    if (r.pv.length) st.viol++;
+    if (groups.has('ethics')) st.ethics++;
+    if (groups.has('standard')) st.standard++;
+    if (groups.has('system')) st.system++;
+    if (r.confirm === 'yes' && r.pv.length) st.confirmed++;
+    if (r.overdue) st.overdue++;
+    inc(st.byDay, r.day); inc(st.ch, r.src);
+    for (const id of r.v) {
+      inc(st.byType, id);
+      if (r.confirm === 'yes') inc(st.typeConfirmed, id);
+      if (!r.employee) inc(st.typeNoEmp, id);
+    }
+    if (r.appKey) inc(appl, r.appKey);
+    // сотрудники
+    if (r.employee) {
+      const k = norm(r.employee);
+      let e = st.emp.get(k);
+      if (!e) st.emp.set(k, e = {key:k, name:r.employee, n:0, viol:0, ethics:0, standard:0, system:0, confirmed:0, score:0, types:{}, cons:{}, recs:[]});
+      e.n++; e.score += r.score; e.recs.push(r); inc(e.cons, r.con || '—');
+      if (r.pv.length) e.viol++;
+      if (groups.has('ethics')) e.ethics++;
+      if (groups.has('standard')) e.standard++;
+      if (groups.has('system')) e.system++;
+      if (r.confirm === 'yes' && r.pv.length) e.confirmed++;
+      for (const id of r.v) inc(e.types, id);
+    } else st.noEmp++;
+    // ЦОН
+    const ck = r.con || 'ЦОН не указан';
+    let c = st.con.get(ck);
+    if (!c) st.con.set(ck, c = {key:ck, name:ck, n:0, viol:0, ethics:0, standard:0, system:0, confirmed:0, score:0, types:{}, branches:{}, recs:[]});
+    c.n++; c.score += r.score; c.recs.push(r); inc(c.branches, r.branch || '—');
+    if (r.pv.length) c.viol++;
+    if (groups.has('ethics')) c.ethics++;
+    if (groups.has('standard')) c.standard++;
+    if (groups.has('system')) c.system++;
+    if (r.confirm === 'yes' && r.pv.length) c.confirmed++;
+    for (const id of r.v) inc(c.types, id);
+    // исполнители
+    if (r.executor) {
+      const xk = norm(r.executor);
+      let x = st.exe.get(xk);
+      if (!x) st.exe.set(xk, x = {key:xk, name:r.executor, n:0, withDeadline:0, overdue:0, days:0, max:0, recs:[]});
+      x.n++; if (r.deadline) x.withDeadline++;
+      if (r.overdue) { x.overdue++; x.days += r.overdueDays; x.max = Math.max(x.max, r.overdueDays); x.recs.push(r); }
+    }
+    // услуги
+    const sk = r.service || 'Тематика не указана';
+    let s = st.svc.get(sk);
+    if (!s) st.svc.set(sk, s = {key:sk, name:sk, n:0, viol:0, ch:{}, recs:[]});
+    s.n++; s.recs.push(r); inc(s.ch, r.src); if (r.pv.length) s.viol++;
+  }
+  for (const k in appl) if (appl[k] > 1) { st.repeatApplicants++; st.repeatAppeals += appl[k]; st.repeatKeys.add(k); }
+  return st;
+}
+const topKey = o => Object.entries(o).sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+let CACHE = null;
+function current() {
+  const key = [S.filter.month, S.filter.ch, S.filter.br, S.version].join('|');
+  if (CACHE && CACHE.key === key) return CACHE;
+  const m = S.filter.month, pm = m ? prevMonthKey(m) : '';
+  const cur = stats(filterRecs(m), m), prev = stats(filterRecs(pm), pm);
+  prev.hasData = S.records.some(r => r.month === pm);
+  CACHE = {key, cur, prev};
+  return CACHE;
+}
+
+/* =====================================================================
+   Графики (SVG): горизонтальные столбцы и линии по дням
+   ===================================================================== */
+function barPath(x, y, w, h, r) {
+  if (w <= 0) return '';
+  r = Math.min(r, w, h / 2);
+  return `M${x},${y}h${w - r}a${r},${r} 0 0 1 ${r},${r}v${h - 2 * r}a${r},${r} 0 0 1 ${-r},${r}h${-(w - r)}z`;
+}
+function hbarChart(items, opts = {}) {
+  items = items.filter(i => i.value > 0).slice(0, opts.max || 10);
+  if (!items.length) return '<p class="empty">Нет данных за выбранный период</p>';
+  const W = 640, labelW = 236, rowH = 26, barH = 14, padT = 2;
+  const plotW = W - labelW - 56, H = items.length * rowH + padT * 2;
+  const max = Math.max(...items.map(i => i.value), 1);
+  const vf = opts.fmt || fmtInt;
+  let s = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title || '')}">`;
+  items.forEach((it, i) => {
+    const y = padT + i * rowH, w = Math.max(2, it.value / max * plotW);
+    s += `<g class="bar-row" data-tip="${esc(it.tip || it.label + ': ' + vf(it.value))}"${it.click ? ` data-click="${esc(it.click)}"` : ''}>`
+      + `<rect class="hit" x="0" y="${y}" width="${W}" height="${rowH}" rx="4"/>`
+      + `<text x="${labelW - 8}" y="${y + rowH / 2}" text-anchor="end" dominant-baseline="central">${esc(trunc(it.label, 36))}</text>`
+      + `<path d="${barPath(labelW, y + (rowH - barH) / 2, w, barH, 4)}" fill="${it.color || 'var(--s-standard)'}"/>`
+      + `<text class="val" x="${labelW + w + 6}" y="${y + rowH / 2}" dominant-baseline="central">${vf(it.value)}</text></g>`;
+  });
+  return s + '</svg>';
+}
+function niceMax(v) {
+  if (v <= 4) return 4;
+  const p = Math.pow(10, Math.floor(Math.log10(v))), n = v / p;
+  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * p;
+}
+function lineChart(cur, prev, curKey, prevKey) {
+  const days = Math.max(daysInMonth(curKey), prevKey ? daysInMonth(prevKey) : 0);
+  const W = 640, H = 230, L = 40, R = 12, T = 12, B = 28;
+  const vals = []; for (let d = 1; d <= days; d++) vals.push(cur[d] || 0, prev[d] || 0);
+  const ymax = niceMax(Math.max(...vals, 1));
+  const x = d => L + (d - 1) / (days - 1) * (W - L - R), y = v => T + (1 - v / ymax) * (H - T - B);
+  let s = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Обращения по дням">`;
+  for (let i = 0; i <= 4; i++) {
+    const v = ymax / 4 * i;
+    s += `<line class="gridline" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="axis" x="${L - 6}" y="${y(v)}" text-anchor="end" dominant-baseline="central">${fmtInt(v)}</text>`;
+  }
+  for (let d = 1; d <= days; d++) if (d === 1 || d % 5 === 0) s += `<text class="axis" x="${x(d)}" y="${H - 8}" text-anchor="middle">${d}</text>`;
+  for (let d = 1; d <= days; d++) {
+    const w = (W - L - R) / (days - 1);
+    s += `<rect class="day-hit" x="${x(d) - w / 2}" y="${T}" width="${w}" height="${H - T - B}" fill="transparent" data-tip="${d}-е число\n${monthLabel(curKey)}: ${fmtInt(cur[d] || 0)}${prevKey ? '\n' + monthLabel(prevKey) + ': ' + fmtInt(prev[d] || 0) : ''}"/>`;
+  }
+  const path = (src, n) => { let p = ''; for (let d = 1; d <= n; d++) p += (d === 1 ? 'M' : 'L') + x(d).toFixed(1) + ',' + y(src[d] || 0).toFixed(1); return p; };
+  if (prevKey) s += `<path d="${path(prev, daysInMonth(prevKey))}" fill="none" stroke="var(--prev)" stroke-width="2" stroke-dasharray="5 4" pointer-events="none"/>`;
+  s += `<path d="${path(cur, daysInMonth(curKey))}" fill="none" stroke="var(--s-standard)" stroke-width="2" pointer-events="none"/>`;
+  return s + '</svg>';
+}
+const groupColor = g => `var(--s-${g})`;
+const groupLegend = () => `<div class="legend">${Object.entries(GROUPS).map(([k, g]) => `<span><i class="${g.cls}"></i>${g.label}</span>`).join('')}</div>`;
+
+/* =====================================================================
+   Общие элементы отображения
+   ===================================================================== */
+function deltaHtml(cur, prev, prevHasData, badWhenUp = true) {
+  if (!prevHasData) return '<span class="delta neutral">нет данных за прошлый месяц</span>';
+  const d = cur - prev;
+  if (!d) return '<span class="delta neutral">= без изменений к прошлому месяцу</span>';
+  const p = prev ? ` (${signed(Math.round(d / prev * 100))}%)` : '';
+  const cls = badWhenUp == null ? 'neutral' : d > 0 ? (badWhenUp ? 'up-bad' : 'up-good') : (badWhenUp ? 'down-good' : 'down-bad');
+  return `<span class="delta ${cls}">${d > 0 ? '▲' : '▼'} ${signed(d)}${p} к прошлому месяцу</span>`;
+}
+function compositionHtml(types, limit = 4) {
+  const C = S.compiled;
+  const arr = Object.entries(types).filter(([id]) => C.byId[id]).sort((a, b) => b[1] - a[1]);
+  if (!arr.length) return '<span class="note">—</span>';
+  return arr.slice(0, limit).map(([id, n]) => { const t = C.byId[id]; return `<span class="chip" title="${esc(t.name)} · ${GROUPS[t.group]?.label || ''}"><i class="${GROUPS[t.group]?.cls || ''}"></i>${esc(t.short || t.name)} ×${n}</span>`; }).join('')
+    + (arr.length > limit ? `<span class="note"> +${arr.length - limit}</span>` : '');
+}
+function compositionText(types) {
+  const C = S.compiled;
+  return Object.entries(types).filter(([id]) => C.byId[id]).sort((a, b) => b[1] - a[1]).map(([id, n]) => (C.byId[id].short || C.byId[id].name) + ' ×' + n).join(', ');
+}
+const SRC_LABEL = {eotinish:'e-Otinish', '1414':'1414'};
+const CONFIRM_BADGE = {yes:'<span class="badge bad">подтверждено</span>', no:'<span class="badge muted">не подтверждено</span>', unk:'<span class="badge muted">не проверено</span>'};
+function noData(msg) {
+  return `<div class="card empty">${msg || 'Нет данных. Загрузите выгрузки e-Otinish и 1414 во вкладке «Загрузка» или откройте демо-данные.'}</div>`;
+}
+const DISCLAIMER = '<div class="infobox">Жалоба не равна доказанной вине. Рейтинг — сигнал для проверки; лица указаны предварительно до подтверждения служебной проверкой или решением Совета по этике.</div>';
+
+/* =====================================================================
+   Модальное окно со списком обращений
+   ===================================================================== */
+function appealHtml(r) {
+  const C = S.compiled;
+  const chips = r.v.map(id => { const t = C.byId[id]; return `<span class="chip"><i class="${GROUPS[t.group]?.cls}"></i>${esc(t.short || t.name)}</span>`; }).join('')
+    + (r.overdue ? `<span class="chip"><i class="g-overdue"></i>Просрочка рассмотрения ${r.overdueDays} дн.</span>` : '');
+  return `<div class="appeal"><div class="a-meta">
+    <b>${fmtDate(r.date)}</b><span>${SRC_LABEL[r.src]}</span>${r.number ? `<span>№ ${esc(r.number)}</span>` : ''}
+    <span>${esc(r.con || 'ЦОН не указан')}</span><span>Сотрудник: ${esc(r.employee || 'не указан')}</span>
+    ${r.service ? `<span>${esc(r.service)}</span>` : ''}${r.executor ? `<span>Исполнитель: ${esc(r.executor)}</span>` : ''}
+    ${r.result ? `<span>Результат: ${esc(r.result)}</span>` : ''} ${CONFIRM_BADGE[r.confirm]}
+  </div><div>${chips}</div><div style="margin-top:4px">${highlight(r.text)}</div></div>`;
+}
+function openList(title, recs, note) {
+  const list = recs.slice().sort((a, b) => b.score - a.score || b.date - a.date);
+  $('#modalTitle').textContent = title;
+  $('#modalBody').innerHTML = (note ? `<p class="note">${note}</p>` : '')
+    + `<p class="note">${fmtInt(list.length)} ${plural(list.length, 'обращение', 'обращения', 'обращений')}. Жёлтым выделены слова-основания для классификации — проверьте их вручную.</p>`
+    + list.slice(0, 500).map(appealHtml).join('')
+    + (list.length > 500 ? '<p class="note">Показаны первые 500. Полный список — во вкладке «Обращения».</p>' : '');
+  $('#modal').classList.add('open');
+  $('#modalBody').scrollTop = 0;
+}
+function closeModal() { $('#modal').classList.remove('open'); }
+
+/* =====================================================================
+   Вкладка «Загрузка»
+   ===================================================================== */
+function renderUpload() {
+  const el = $('#tab-upload');
+  const total = S.records.length;
+  let h = `<div class="drop" id="drop"><b>Перетащите выгрузки сюда</b> или нажмите, чтобы выбрать файлы<br>
+    <span class="note">e-Otinish, 1414 и (по желанию) файл нагрузки сотрудников · .xlsx (первый лист) или .csv · можно несколько файлов сразу</span></div>
+    <div class="warnbox">Отчёт содержит ФИО сотрудников и тексты обращений — распространяйте только руководству, кадровой службе и уполномоченному по этике. Если не нужен анализ повторных обращений, удалите из выгрузки ИИН, телефоны и адреса граждан.</div>`;
+  if (S.files.length) {
+    h += `<p>Загружено файлов: <b>${S.files.length}</b>, распознано обращений: <b>${fmtInt(total)}</b>.</p>`;
+  }
+  S.files.forEach((f, fi) => {
+    const months = Object.entries(f.months || {}).sort().map(([k, n]) => `${monthLabel(k)}: ${fmtInt(n)}`).join(' · ');
+    h += `<div class="filecard"><header><b>${esc(f.name)}</b>
+      ${f.error ? '<span class="badge bad">ошибка</span>' : f.problems?.some(p => p.includes('не учитывается')) ? '<span class="badge bad">не учитывается</span>' : '<span class="badge good">учтён</span>'}
+      <span class="grow" style="flex:1"></span><button class="btn small danger" data-remove="${fi}">Убрать</button></header>`;
+    if (f.error) { h += `<div class="errbox">${esc(f.error)}</div></div>`; return; }
+    h += `<div class="meta"><span>Строк данных: ${fmtInt(f.rows.length)}</span><span>Учтено: ${fmtInt(f.used || 0)}</span>
+      ${f.skipped ? `<span style="color:var(--warn)">Пропущено (нет распознанной даты): ${fmtInt(f.skipped)}</span>` : ''}${months ? `<span>${months}</span>` : ''}</div>
+      <div class="opts">
+        <label>Тип файла<select data-ftype="${fi}"><option value="appeals" ${f.type === 'appeals' ? 'selected' : ''}>Обращения</option><option value="workload" ${f.type === 'workload' ? 'selected' : ''}>Нагрузка сотрудников</option></select></label>
+        ${f.type === 'appeals' ? `<label>Источник<select data-fsrc="${fi}">
+          <option value="eotinish" ${f.source === 'eotinish' ? 'selected' : ''}>e-Otinish</option>
+          <option value="1414" ${f.source === '1414' ? 'selected' : ''}>1414</option>
+          <option value="channel" ${f.source === 'channel' ? 'selected' : ''}>По столбцу «Канал»</option></select></label>` : ''}
+        <label>Строка заголовков<input type="number" min="1" value="${f.headerIdx + 1}" data-fhead="${fi}" style="width:80px"></label>
+      </div>`;
+    if (f.type === 'appeals' && f.sourceDetected === 'eotinish' && !/otinish|отиниш/.test(norm(f.name)) && f.map.channel < 0)
+      h += `<div class="warnbox">Источник не удалось определить по имени файла — проверьте поле «Источник».</div>`;
+    (f.problems || []).forEach(p => h += `<div class="${p.includes('не учитывается') || p.includes('Укажите') ? 'errbox' : 'warnbox'}">${esc(p)}</div>`);
+    const fields = f.type === 'workload' ? WFIELDS : FIELDS, map = f.type === 'workload' ? f.wmap : f.map;
+    h += `<details ${f.problems?.length ? 'open' : ''}><summary>Сопоставление столбцов</summary><div class="table-wrap" style="margin-top:8px"><table class="maptable"><tr><th>Поле</th><th>Столбец в файле</th><th>Пример значения</th></tr>`;
+    for (const fd of fields) {
+      const ci = map[fd.key];
+      const sample = ci >= 0 ? sampleOf(f, ci, fd.key) : '';
+      const [rl, rc] = REQ_LABEL[fd.req];
+      h += `<tr><td>${esc(fd.label)} <span class="req ${rc}">${rl}</span></td><td><select data-fmap="${fi}" data-field="${fd.key}">
+        <option value="-1">— нет —</option>${f.headers.map((hd, i) => `<option value="${i}" ${i === ci ? 'selected' : ''}>${esc(trunc(hd, 50))}</option>`).join('')}</select></td>
+        <td class="sample" title="${esc(sample)}">${esc(sample)}</td></tr>`;
+    }
+    h += '</table></div></details></div>';
+  });
+  el.innerHTML = h;
+}
+function sampleOf(f, ci, key) {
+  for (const r of f.rows.slice(0, 200)) {
+    const v = r[ci];
+    if (cellStr(v)) {
+      if (typeof v === 'number' && ['date', 'deadline', 'answer'].includes(key)) { const d = parseDate(v); if (d) return fmtDate(d) + ' (дата Excel)'; }
+      return trunc(cellStr(v), 120);
+    }
+  }
+  return '(пусто)';
+}
+async function handleFiles(list) {
+  for (const file of list) {
+    const f = {id:Math.random().toString(36).slice(2), name:file.name, rows:[], headers:[], map:{}, wmap:{}, headerIdx:0, type:'appeals', source:'eotinish'};
+    try {
+      const buf = await file.arrayBuffer();
+      const isZip = new Uint8Array(buf.slice(0, 2)).every((b, i) => b === [0x50, 0x4b][i]);
+      let rows;
+      if (/\.xlsx$/i.test(file.name) || isZip) rows = await readXlsx(buf);
+      else if (/\.xls$/i.test(file.name)) throw new Error('Формат .xls (Excel 97–2003) не поддерживается — сохраните файл как .xlsx или .csv');
+      else rows = parseCSV(decodeText(buf));
+      if (!rows.length) throw new Error('Файл пуст');
+      setupFile(f, rows);
+    } catch (e) { f.error = 'Не удалось прочитать файл: ' + e.message; }
+    S.files.push(f);
+  }
+  rebuild();
+}
+
+/* =====================================================================
+   Вкладка «Обзор месяца» (FR-17)
+   ===================================================================== */
+function renderOverview() {
+  const el = $('#tab-overview');
+  if (!S.records.length) { el.innerHTML = '<h2>Обзор месяца</h2>' + noData(); return; }
+  const {cur, prev} = current(), ph = prev.hasData, C = S.compiled;
+  const kpi = (label, v, pv, extra, bad = true) => `<div class="kpi"><div class="k-label">${label}</div><div class="k-val">${fmtInt(v)}${extra ? ` <small>${extra}</small>` : ''}</div>${deltaHtml(v, pv, ph, bad)}</div>`;
+  let h = `<h2>Обзор месяца: ${monthLabel(cur.month)}</h2><div class="kpis">
+    ${kpi('Всего обращений', cur.total, prev.total, '', null)}
+    ${kpi('С признаками нарушений', cur.viol, prev.viol, pct(cur.viol, cur.total) + '%')}
+    ${kpi('Нарушения Этического кодекса', cur.ethics, prev.ethics)}
+    ${kpi('Нарушения стандарта госуслуг', cur.standard, prev.standard)}
+    ${kpi('Просрочки рассмотрения', cur.overdue, prev.overdue)}
+    ${kpi('Повторные обращения', cur.repeatAppeals, prev.repeatAppeals, cur.repeatApplicants ? 'от ' + fmtInt(cur.repeatApplicants) + ' заяв.' : '')}
+  </div>
+  <p class="note">Системные проблемы (не засчитываются сотрудникам): ${fmtInt(cur.system)} · подтверждено проверкой: ${fmtInt(cur.confirmed)} · без указания сотрудника: ${fmtInt(cur.noEmp)} · e-Otinish: ${fmtInt(cur.ch.eotinish || 0)}, 1414: ${fmtInt(cur.ch['1414'] || 0)}</p>`;
+  const typeItems = C.types.map(t => ({label:t.name, value:cur.byType[t.id] || 0, color:groupColor(t.group),
+    tip:`${t.name}\n${GROUPS[t.group]?.label}\nЗа месяц: ${fmtInt(cur.byType[t.id] || 0)}${ph ? '\nВ прошлом месяце: ' + fmtInt(prev.byType[t.id] || 0) : ''}`, click:'type|' + t.id}))
+    .sort((a, b) => b.value - a.value);
+  const pk = ph ? prev.month : '';
+  h += `<div class="grid2">
+    <div class="card"><h3>Нарушения по видам</h3>${groupLegend()}${hbarChart(typeItems, {max:12, title:'Нарушения по видам'})}</div>
+    <div class="card"><h3>Обращения по дням</h3><div class="legend"><span><i class="line" style="background:var(--s-standard)"></i>${monthLabel(cur.month)}</span>${ph ? `<span><i class="line" style="background:var(--prev)"></i>${monthLabel(prev.month)} (пунктир)</span>` : ''}</div>${lineChart(cur.byDay, prev.byDay, cur.month, pk)}</div>
+    <div class="card"><h3>Сотрудники с наибольшим индексом риска</h3>${hbarChart([...cur.emp.values()].sort((a, b) => b.score - a.score).map(e => ({label:e.name, value:e.score, click:'emp|' + e.key,
+      tip:`${e.name}\nИндекс риска: ${e.score}\nОбращений: ${e.n}, с нарушениями: ${e.viol}\n${compositionText(e.types)}`})), {title:'Топ сотрудников'})}
+      <p class="note">Сигнал для проверки, а не доказательство вины.</p></div>
+    <div class="card"><h3>ЦОН с наибольшим индексом риска</h3>${hbarChart([...cur.con.values()].sort((a, b) => b.score - a.score).map(c => ({label:c.name, value:c.score, click:'con|' + c.key,
+      tip:`${c.name}\nИндекс риска: ${c.score}\nОбращений: ${c.n}, с нарушениями: ${c.viol} (${pct(c.viol, c.n)}%)`})), {title:'Топ ЦОН'})}</div>
+  </div>`;
+  el.innerHTML = h;
+}
+
+/* =====================================================================
+   Вкладка «Сотрудники» (FR-18)
+   ===================================================================== */
+function employeeRows() {
+  const {cur, prev} = current(), ui = S.ui;
+  let rows = [...cur.emp.values()].map(e => {
+    const load = workloadOf(e.key, cur.month), pe = prev.emp.get(e.key);
+    return {...e, con:topKey(e.cons), per1000:load ? e.n / load * 1000 : null, load, delta:pe ? e.score - pe.score : null, isNew:!pe && prev.hasData};
+  });
+  if (ui.empGroup !== 'all') rows = rows.filter(r => r[ui.empGroup] > 0);
+  if (ui.empSearch) { const q = norm(ui.empSearch); rows = rows.filter(r => norm(r.name + ' ' + r.con).includes(q)); }
+  const k = ui.empSort, d = ui.empDir;
+  rows.sort((a, b) => ((a[k] ?? -1e9) > (b[k] ?? -1e9) ? 1 : (a[k] ?? -1e9) < (b[k] ?? -1e9) ? -1 : 0) * d || b.n - a.n);
+  return rows;
+}
+const empLabel = e => e.confirmed ? '<span class="badge bad">есть подтверждённые</span>' : e.viol ? '<span class="badge warn">требует проверки</span>' : '';
+const empLabelText = e => e.confirmed ? 'есть подтверждённые' : e.viol ? 'требует проверки' : '';
+function renderEmployees() {
+  const el = $('#tab-employees');
+  if (!S.records.length) { el.innerHTML = '<h2>Сотрудники</h2>' + noData(); return; }
+  const {cur} = current(), rows = employeeRows(), ui = S.ui;
+  const hasLoad = rows.some(r => r.load);
+  const th = (k, label, cls = 'num') => `<th class="sortable ${cls}" data-sort="${k}">${label}${ui.empSort === k ? (ui.empDir < 0 ? ' ↓' : ' ↑') : ''}</th>`;
+  let h = `<h2>Сотрудники: рейтинг по индексу риска · ${monthLabel(cur.month)}</h2>${DISCLAIMER}
+  <div class="toolbar no-print"><input type="search" id="empSearch" placeholder="Поиск по ФИО или ЦОН" value="${esc(ui.empSearch)}">
+    <select id="empGroup"><option value="all">Все группы</option><option value="ethics" ${ui.empGroup === 'ethics' ? 'selected' : ''}>Этический кодекс</option><option value="standard" ${ui.empGroup === 'standard' ? 'selected' : ''}>Стандарт госуслуг</option></select>
+    <span class="grow"></span><span class="note">${fmtInt(rows.length)} сотр.</span><button class="btn" id="empCsv">Выгрузить в CSV</button></div>`;
+  if (!cur.emp.size) h += `<div class="warnbox">В выгрузках за этот месяц нет столбца с ФИО сотрудника ЦОН или он пуст — рейтинг сотрудников не строится. Используйте рейтинг ЦОН.</div>`;
+  if (cur.noEmp) h += `<p class="note">Обращений без указания сотрудника: ${fmtInt(cur.noEmp)} — в рейтинг не попадают.</p>`;
+  if (!hasLoad) h += `<p class="note">Нагрузка не загружена — «На 1000 обслуживаний» не рассчитывается. Сравнение в абсолютных числах менее справедливо для сотрудников с разной нагрузкой.</p>`;
+  h += `<div class="table-wrap"><table><thead><tr><th>#</th>${th('name', 'Сотрудник', '')}<th>ЦОН</th>${th('n', 'Обращений')}${th('ethics', 'Этика')}${th('standard', 'Стандарт')}${th('confirmed', 'Подтверждено')}${th('per1000', 'На 1000 обслуж.')}${th('score', 'Индекс риска')}${th('delta', 'Изменение')}<th>Состав нарушений</th><th>Метка</th></tr></thead><tbody>`;
+  rows.forEach((e, i) => {
+    h += `<tr class="clickable" data-click="emp|${esc(e.key)}"><td class="num">${i + 1}</td><td style="white-space:nowrap"><b>${esc(e.name)}</b></td><td>${esc(e.con)}</td><td class="num">${e.n}</td><td class="num">${e.ethics || ''}</td><td class="num">${e.standard || ''}</td><td class="num">${e.confirmed || ''}</td>
+      <td class="num">${e.per1000 != null ? fmt1(e.per1000) : '—'}</td><td class="num"><b>${e.score}</b></td>
+      <td class="num">${e.delta != null ? `<span class="delta ${e.delta > 0 ? 'up-bad' : e.delta < 0 ? 'down-good' : 'neutral'}">${signed(e.delta)}</span>` : e.isNew ? '<span class="note">нет в пр. мес.</span>' : '—'}</td>
+      <td>${compositionHtml(e.types)}</td><td>${empLabel(e)}</td></tr>`;
+  });
+  h += '</tbody></table></div>';
+  el.innerHTML = h;
+}
+function exportEmployees() {
+  const {cur} = current(), rows = employeeRows();
+  downloadCSV(`сотрудники_${cur.month}.csv`, ['№', 'Сотрудник', 'ЦОН', 'Обращений', 'Этика', 'Стандарт', 'Системные', 'Подтверждено', 'Нагрузка', 'На 1000 обслуживаний', 'Индекс риска', 'Изменение к прошлому месяцу', 'Состав нарушений', 'Метка'],
+    rows.map((e, i) => [i + 1, e.name, e.con, e.n, e.ethics, e.standard, e.system, e.confirmed, e.load ?? '', e.per1000 != null ? fmt1(e.per1000) : '', e.score, e.delta ?? '', compositionText(e.types), empLabelText(e)]));
+}
+
+/* =====================================================================
+   Вкладка «Сроки рассмотрения» (FR-19)
+   ===================================================================== */
+function renderDeadlines() {
+  const el = $('#tab-deadlines');
+  if (!S.records.length) { el.innerHTML = '<h2>Сроки рассмотрения</h2>' + noData(); return; }
+  const {cur, prev} = current();
+  const withDl = cur.recs.filter(r => r.deadline).length;
+  const noExe = cur.recs.filter(r => r.overdue && !r.executor).length;
+  const rows = [...cur.exe.values()].filter(x => x.overdue).sort((a, b) => b.overdue - a.overdue || b.days - a.days);
+  let h = `<h2>Сроки рассмотрения обращений · ${monthLabel(cur.month)}</h2>
+    <p class="note">Просрочки засчитываются исполнителю обращения (тому, кто его рассматривает), а не сотруднику ЦОН. Просрочка: дата ответа позже контрольного срока или ответа нет, а срок уже прошёл (на ${fmtDate(TODAY)}).</p>
+    <div class="kpis"><div class="kpi"><div class="k-label">Просрочено</div><div class="k-val">${fmtInt(cur.overdue)} <small>из ${fmtInt(withDl)} с контрольным сроком</small></div>${deltaHtml(cur.overdue, prev.overdue, prev.hasData)}</div>
+    <div class="kpi"><div class="k-label">Доля просрочек</div><div class="k-val">${pct(cur.overdue, withDl)}%</div></div>
+    <div class="kpi"><div class="k-label">Просрочено без исполнителя</div><div class="k-val">${fmtInt(noExe)}</div></div></div>`;
+  if (!withDl) h += '<div class="warnbox">В выгрузках нет столбца «Контрольный срок» или он пуст — просрочки не вычисляются.</div>';
+  if (rows.length) {
+    h += `<div class="grid2"><div class="card"><h3>Исполнители с наибольшим числом просрочек</h3>${hbarChart(rows.map(x => ({label:x.name, value:x.overdue, click:'exe|' + x.key, tip:`${x.name}\nПросрочено: ${x.overdue} из ${x.withDeadline}\nСредняя просрочка: ${fmt1(x.days / x.overdue)} дн.`})), {title:'Просрочки'})}</div></div>
+    <div class="table-wrap" style="margin-top:16px"><table><thead><tr><th>#</th><th>Исполнитель</th><th class="num">Обращений</th><th class="num">С контр. сроком</th><th class="num">Просрочено</th><th class="num">Доля</th><th class="num">Средняя просрочка, дн.</th><th class="num">Максимум, дн.</th></tr></thead><tbody>`
+      + rows.map((x, i) => `<tr class="clickable" data-click="exe|${esc(x.key)}"><td class="num">${i + 1}</td><td><b>${esc(x.name)}</b></td><td class="num">${x.n}</td><td class="num">${x.withDeadline}</td><td class="num"><b>${x.overdue}</b></td><td class="num">${pct(x.overdue, x.withDeadline)}%</td><td class="num">${fmt1(x.days / x.overdue)}</td><td class="num">${x.max}</td></tr>`).join('')
+      + '</tbody></table></div>';
+  } else if (withDl) h += '<div class="card empty">Просрочек рассмотрения нет.</div>';
+  el.innerHTML = h;
+}
+
+/* =====================================================================
+   Вкладка «ЦОНы» (FR-20)
+   ===================================================================== */
+function renderCons() {
+  const el = $('#tab-cons');
+  if (!S.records.length) { el.innerHTML = '<h2>ЦОНы</h2>' + noData(); return; }
+  const {cur, prev} = current();
+  const rows = [...cur.con.values()].sort((a, b) => b.score - a.score || b.viol - a.viol);
+  let h = `<h2>ЦОНы: рейтинг по индексу риска · ${monthLabel(cur.month)}</h2>
+    <div class="toolbar no-print"><span class="grow"></span><button class="btn" id="conCsv">Выгрузить в CSV</button></div>
+    <div class="table-wrap"><table><thead><tr><th>#</th><th>ЦОН</th><th>Филиал</th><th class="num">Обращений</th><th class="num">С нарушениями</th><th class="num">Доля</th><th class="num">Этика</th><th class="num">Стандарт</th><th class="num">Системные</th><th class="num">Индекс риска</th><th class="num">Изменение</th><th>Состав нарушений</th></tr></thead><tbody>`;
+  rows.forEach((c, i) => {
+    const pc = prev.con.get(c.key), d = pc ? c.score - pc.score : null;
+    h += `<tr class="clickable" data-click="con|${esc(c.key)}"><td class="num">${i + 1}</td><td><b>${esc(c.name)}</b></td><td>${esc(topKey(c.branches))}</td><td class="num">${c.n}</td><td class="num">${c.viol}</td><td class="num">${pct(c.viol, c.n)}%</td>
+      <td class="num">${c.ethics || ''}</td><td class="num">${c.standard || ''}</td><td class="num">${c.system || ''}</td><td class="num"><b>${c.score}</b></td>
+      <td class="num">${d != null ? `<span class="delta ${d > 0 ? 'up-bad' : d < 0 ? 'down-good' : 'neutral'}">${signed(d)}</span>` : '—'}</td><td>${compositionHtml(c.types, 5)}</td></tr>`;
+  });
+  el.innerHTML = h + '</tbody></table></div>';
+}
+function exportCons() {
+  const {cur, prev} = current();
+  const rows = [...cur.con.values()].sort((a, b) => b.score - a.score);
+  downloadCSV(`цон_${cur.month}.csv`, ['№', 'ЦОН', 'Филиал', 'Обращений', 'С нарушениями', 'Доля, %', 'Этика', 'Стандарт', 'Системные', 'Подтверждено', 'Индекс риска', 'Изменение', 'Состав нарушений'],
+    rows.map((c, i) => { const pc = prev.con.get(c.key); return [i + 1, c.name, topKey(c.branches), c.n, c.viol, pct(c.viol, c.n), c.ethics, c.standard, c.system, c.confirmed, c.score, pc ? c.score - pc.score : '', compositionText(c.types)]; }));
+}
+
+/* =====================================================================
+   Вкладка «Услуги и темы» (FR-21)
+   ===================================================================== */
+function serviceGrowth(cur, prev) {
+  const g = S.settings.growth;
+  if (!prev.hasData) return [];
+  return [...cur.svc.values()].map(s => {
+    const p = prev.svc.get(s.key)?.n || 0;
+    return {...s, prev:p, growth:p ? (s.n - p) / p * 100 : Infinity};
+  }).filter(s => s.n >= g.min && s.growth >= g.pct && s.key !== 'Тематика не указана').sort((a, b) => (b.n - b.prev) - (a.n - a.prev));
+}
+function renderServices() {
+  const el = $('#tab-services');
+  if (!S.records.length) { el.innerHTML = '<h2>Услуги и темы</h2>' + noData(); return; }
+  const {cur, prev} = current(), ph = prev.hasData;
+  const rows = [...cur.svc.values()].sort((a, b) => b.n - a.n);
+  const growth = serviceGrowth(cur, prev);
+  const g = S.settings.growth;
+  let h = `<h2>Услуги и темы · ${monthLabel(cur.month)}</h2><div class="grid2">
+    <div class="card"><h3>Топ тематик по числу обращений</h3>${hbarChart(rows.map(s => ({label:s.name, value:s.n, click:'svc|' + s.key, tip:`${s.name}\nОбращений: ${s.n}\nС нарушениями: ${s.viol}`})), {title:'Топ тематик'})}</div>
+    <div class="card"><h3>Распределение по каналам</h3>${hbarChart([{label:'e-Otinish', value:cur.ch.eotinish || 0}, {label:'1414', value:cur.ch['1414'] || 0}], {title:'Каналы'})}
+      <h3 style="margin-top:16px">Наибольший рост к прошлому месяцу <span class="note">(не менее ${g.min} обращений, рост от ${g.pct}%)</span></h3>
+      ${!ph ? '<p class="note">Нет данных за прошлый месяц.</p>' : growth.length ? `<table><thead><tr><th>Тематика</th><th class="num">Было</th><th class="num">Стало</th><th class="num">Рост</th></tr></thead><tbody>${growth.map(s => `<tr class="clickable" data-click="svc|${esc(s.key)}"><td>${esc(s.name)}</td><td class="num">${s.prev}</td><td class="num">${s.n}</td><td class="num"><span class="delta up-bad">${isFinite(s.growth) ? '+' + Math.round(s.growth) + '%' : 'новая'}</span></td></tr>`).join('')}</tbody></table>` : '<p class="note">Тематик со значимым ростом нет.</p>'}
+    </div></div>
+    <div class="table-wrap" style="margin-top:16px"><table><thead><tr><th>Тематика / госуслуга</th><th class="num">Обращений</th><th class="num">Прошлый месяц</th><th class="num">Изменение</th><th class="num">С нарушениями</th><th class="num">e-Otinish</th><th class="num">1414</th></tr></thead><tbody>`
+    + rows.map(s => { const p = prev.svc.get(s.key)?.n || 0; return `<tr class="clickable" data-click="svc|${esc(s.key)}"><td>${esc(s.name)}</td><td class="num"><b>${s.n}</b></td><td class="num">${ph ? p : '—'}</td><td class="num">${ph ? signed(s.n - p) : '—'}</td><td class="num">${s.viol}</td><td class="num">${s.ch.eotinish || 0}</td><td class="num">${s.ch['1414'] || 0}</td></tr>`; }).join('')
+    + '</tbody></table></div>';
+  el.innerHTML = h;
+}
+
+/* =====================================================================
+   Вкладка «Рекомендации» (FR-23 … FR-26)
+   ===================================================================== */
+function dynText(c, p, ph) {
+  if (!ph) return 'нет данных за прошлый месяц';
+  if (!p) return 'в прошлом месяце не было';
+  const d = c - p;
+  return `в прошлом месяце ${p}, ${d === 0 ? 'без изменений' : signed(d) + ' (' + signed(Math.round(d / p * 100)) + '%)'}`;
+}
+function generateRecs() {
+  const {cur, prev} = current(), ph = prev.hasData, C = S.compiled, s = S.settings;
+  const due = days => fmtDate(addDays(TODAY, +days || 0));
+  const rows = [];
+  const types = C.types.filter(t => cur.byType[t.id]).sort((a, b) => (cur.byType[b.id] - cur.byType[a.id]));
+  for (const t of types) {
+    const c = cur.byType[t.id], p = prev.byType[t.id] || 0;
+    const cons = [...cur.con.values()].filter(x => x.types[t.id]).sort((a, b) => b.types[t.id] - a.types[t.id]);
+    const emps = [...cur.emp.values()].filter(x => x.types[t.id]).sort((a, b) => b.types[t.id] - a.types[t.id]).slice(0, 3);
+    const noEmp = cur.typeNoEmp[t.id] || 0;
+    let who;
+    if (t.group === 'system') who = 'Персональная вина не устанавливается — системная проблема';
+    else {
+      who = emps.length ? emps.map(e => `${e.name} (${e.types[t.id]})`).join(', ') + ' — предварительно, до проверки' : 'Установить в ходе проверки';
+      if (emps.length && noEmp) who += `; по ${noEmp} обращ. сотрудник не указан — установить в ходе проверки`;
+    }
+    rows.push({problem:`${t.name} (${GROUPS[t.group]?.label || ''})`,
+      basis:`${c} ${plural(c, 'обращение', 'обращения', 'обращений')}; ${dynText(c, p, ph)}; подтверждено проверкой: ${cur.typeConfirmed[t.id] || 0}${cons[0] ? `; больше всего — ${cons[0].name} (${cons[0].types[t.id]})` : ''}`,
+      who, measures:t.measures, resp:t.responsible, due:due(t.days), status:'Новая'});
+  }
+  if (cur.overdue) {
+    const o = s.overdue, exes = [...cur.exe.values()].filter(x => x.overdue).sort((a, b) => b.overdue - a.overdue).slice(0, 3);
+    rows.push({problem:o.name, basis:`${cur.overdue} просроч. ${plural(cur.overdue, 'обращение', 'обращения', 'обращений')}; ${dynText(cur.overdue, prev.overdue, ph)}`,
+      who:exes.length ? exes.map(x => `${x.name} (${x.overdue})`).join(', ') + ' — исполнители обращений, предварительно' : 'Установить в ходе проверки (исполнитель не указан)',
+      measures:o.measures, resp:o.responsible, due:due(o.days), status:'Новая'});
+  }
+  for (const sv of serviceGrowth(cur, prev)) {
+    const g = s.growth;
+    rows.push({problem:`Рост обращений по услуге «${sv.name}»`, basis:`${sv.n} обращений против ${sv.prev} в прошлом месяце (${isFinite(sv.growth) ? '+' + Math.round(sv.growth) + '%' : 'новая тематика'}); с нарушениями: ${sv.viol}`,
+      who:'Персональная вина не установлена — требуется анализ причин', measures:g.measures, resp:g.responsible, due:due(g.days), status:'Новая'});
+  }
+  if (cur.repeatApplicants) {
+    const rp = s.repeat, byCon = {};
+    cur.recs.filter(r => cur.repeatKeys.has(r.appKey)).forEach(r => inc(byCon, r.con || 'ЦОН не указан'));
+    const top = Object.entries(byCon).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([k, n]) => `${k} (${n})`).join(', ');
+    rows.push({problem:'Повторные обращения', basis:`${cur.repeatAppeals} обращений от ${cur.repeatApplicants} ${plural(cur.repeatApplicants, 'заявителя', 'заявителей', 'заявителей')}; ${dynText(cur.repeatAppeals, prev.repeatAppeals, ph)}`,
+      who:`Установить в ходе проверки; больше всего повторных: ${top}`, measures:rp.measures, resp:rp.responsible, due:due(rp.days), status:'Новая'});
+  }
+  return rows;
+}
+const recKey = () => [S.filter.month, S.filter.ch, S.filter.br].join('|');
+function recState(force) {
+  const k = recKey();
+  let st = S.recs[k];
+  if (force || !st || (!st.edited && st.version !== S.version)) st = S.recs[k] = {rows:generateRecs(), edited:false, version:S.version};
+  return st;
+}
+const REC_COLS = [['problem', 'Проблема', ''], ['basis', 'Основание', 'wide'], ['who', 'Допустившие (предварительно)', 'wide'], ['measures', 'Меры и пути решения', 'wide'], ['resp', 'Ответственный за исполнение', ''], ['due', 'Срок', '']];
+function renderRecs() {
+  const el = $('#tab-recs');
+  if (!S.records.length) { el.innerHTML = '<h2>Рекомендации и пути решения</h2>' + noData(); return; }
+  const st = recState();
+  let h = `<h2>Рекомендации и пути решения · ${monthLabel(S.filter.month)}</h2>${DISCLAIMER}
+    <div class="toolbar no-print"><span class="note">Все ячейки редактируются — щёлкните по тексту.</span><span class="grow"></span>
+      <button class="btn" id="recAdd">Добавить строку</button><button class="btn" id="recRegen">Сформировать заново</button><button class="btn" id="recCsv">Выгрузить в CSV</button></div>`;
+  if (st.edited && st.version !== S.version) h += '<div class="warnbox no-print">Данные или словари изменились после правки таблицы. Нажмите «Сформировать заново», чтобы пересчитать (ручные правки будут потеряны), или выгрузите текущую таблицу в CSV.</div>';
+  h += `<div class="table-wrap"><table class="recs"><thead><tr><th>№</th>${REC_COLS.map(c => `<th>${c[1]}</th>`).join('')}<th>Статус</th><th class="no-print"></th></tr></thead><tbody>`;
+  st.rows.forEach((r, i) => {
+    h += `<tr><td class="num">${i + 1}</td>${REC_COLS.map(([k, , cls]) => `<td contenteditable="true" class="${cls}" data-rec="${i}" data-f="${k}">${esc(r[k])}</td>`).join('')}
+      <td><select class="no-print" data-rec-status="${i}">${STATUSES.map(s => `<option ${s === r.status ? 'selected' : ''}>${s}</option>`).join('')}</select><span class="print-only">${esc(r.status)}</span></td>
+      <td class="no-print"><button class="btn small danger" data-rec-del="${i}" title="Удалить строку">✕</button></td></tr>`;
+  });
+  if (!st.rows.length) h += `<tr><td colspan="9" class="empty">Нарушений не выявлено.</td></tr>`;
+  el.innerHTML = h + '</tbody></table></div>';
+}
+function exportRecs() {
+  const st = recState();
+  downloadCSV(`рекомендации_${S.filter.month}.csv`, ['№', ...REC_COLS.map(c => c[1]), 'Статус'], st.rows.map((r, i) => [i + 1, ...REC_COLS.map(c => r[c[0]]), r.status]));
+}
+
+/* =====================================================================
+   Вкладка «Обращения» (FR-22)
+   ===================================================================== */
+function appealFilter() {
+  const {cur} = current(), ui = S.ui, t = ui.apType;
+  let list = cur.recs;
+  if (t === 'viol') list = list.filter(r => r.pv.length);
+  else if (t === 'none') list = list.filter(r => !r.v.length);
+  else if (t === 'overdue') list = list.filter(r => r.overdue);
+  else if (t === 'repeat') list = list.filter(r => cur.repeatKeys.has(r.appKey));
+  else if (t === 'confirmed') list = list.filter(r => r.confirm === 'yes');
+  else if (t !== 'all') list = list.filter(r => r.v.includes(t));
+  if (ui.apSearch) { const q = norm(ui.apSearch); list = list.filter(r => norm([r.text, r.employee, r.con, r.service, r.number, r.executor].join(' ')).includes(q)); }
+  return list.slice().sort((a, b) => b.date - a.date);
+}
+function renderAppeals() {
+  const el = $('#tab-appeals');
+  if (!S.records.length) { el.innerHTML = '<h2>Обращения</h2>' + noData(); return; }
+  const ui = S.ui, list = appealFilter(), C = S.compiled;
+  let h = `<h2>Обращения · ${monthLabel(S.filter.month)}</h2>
+    <div class="toolbar"><input type="search" id="apSearch" placeholder="Поиск по тексту, ФИО, ЦОН, номеру" value="${esc(ui.apSearch)}" style="min-width:260px">
+    <select id="apType"><option value="all">Все обращения</option><option value="viol" ${ui.apType === 'viol' ? 'selected' : ''}>С признаками нарушений</option><option value="none" ${ui.apType === 'none' ? 'selected' : ''}>Без признаков</option>
+      ${C.types.map(t => `<option value="${t.id}" ${ui.apType === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}
+      <option value="overdue" ${ui.apType === 'overdue' ? 'selected' : ''}>Просрочка рассмотрения</option><option value="repeat" ${ui.apType === 'repeat' ? 'selected' : ''}>Повторные</option><option value="confirmed" ${ui.apType === 'confirmed' ? 'selected' : ''}>Подтверждённые</option></select>
+    <span class="grow"></span><span class="note">Найдено: ${fmtInt(list.length)}</span><button class="btn" id="apCsv">Выгрузить в CSV</button></div>
+    <div class="table-wrap"><table><thead><tr><th>Дата</th><th>Канал</th><th>ЦОН</th><th>Сотрудник</th><th>Тематика</th><th>Нарушения</th><th>Текст</th><th>Результат</th></tr></thead><tbody>`;
+  for (const r of list.slice(0, ui.apLimit)) {
+    const chips = r.v.map(id => { const t = C.byId[id]; return `<span class="chip"><i class="${GROUPS[t.group]?.cls}"></i>${esc(t.short || t.name)}</span>`; }).join('') + (r.overdue ? '<span class="chip"><i class="g-overdue"></i>Просрочка</span>' : '');
+    h += `<tr><td style="white-space:nowrap">${fmtDate(r.date)}${r.number ? `<div class="note">№ ${esc(r.number)}</div>` : ''}</td><td>${SRC_LABEL[r.src]}</td><td>${esc(r.con)}</td><td>${esc(r.employee)}</td><td>${esc(r.service)}</td><td>${chips}</td>
+      <td><div class="txt clamp" title="Нажмите, чтобы развернуть">${highlight(r.text)}</div></td><td>${esc(r.result)}${r.result ? '<br>' : ''}${CONFIRM_BADGE[r.confirm]}</td></tr>`;
+  }
+  h += '</tbody></table></div>';
+  if (list.length > ui.apLimit) h += `<div style="text-align:center;margin:12px"><button class="btn" id="apMore">Показать ещё (${fmtInt(list.length - ui.apLimit)})</button></div>`;
+  el.innerHTML = h;
+}
+function exportAppeals() {
+  const C = S.compiled;
+  downloadCSV(`обращения_${S.filter.month}.csv`, ['Дата', 'Номер', 'Канал', 'Филиал', 'ЦОН', 'Сотрудник', 'Тематика', 'Нарушения', 'Слова-основания', 'Просрочка, дн.', 'Индекс', 'Результат', 'Подтверждение', 'Текст'],
+    appealFilter().map(r => [fmtDate(r.date), r.number, SRC_LABEL[r.src], r.branch, r.con, r.employee, r.service, r.v.map(id => C.byId[id].name).join(', '),
+      Object.values(r.hits).flat().join(', '), r.overdue ? r.overdueDays : '', r.score, r.result, {yes:'подтверждено', no:'не подтверждено', unk:'не проверено'}[r.confirm], r.text]));
+}
+
+/* =====================================================================
+   Вкладка «Словари и веса» (FR-13 … FR-15)
+   ===================================================================== */
+function renderSettings() {
+  const s = S.settings;
+  let h = `<h2>Словари и веса</h2>
+    <p class="note">Обращение относится к виду нарушения, если в тексте или тематике встречается ключевое слово. Сравнение по началу слова: «груб» находит «грубо», «грубила», но не находит совпадений внутри других слов. Фраза из нескольких слов ищется пословно: «отказ в прием» найдёт «отказали в приёме». Изменения применяются сразу и сохраняются в этом браузере; для передачи коллегам сохраните настройки в файл.</p>
+    <div class="toolbar"><button class="btn" id="setSave">Сохранить настройки в файл</button><button class="btn" id="setLoad">Загрузить из файла</button><button class="btn" id="setAdd">Добавить вид нарушения</button><span class="grow"></span><button class="btn danger" id="setReset">Вернуть исходные настройки</button></div>
+    <div class="table-wrap"><table class="settings"><thead><tr><th>Вид нарушения</th><th>Кратко</th><th>Группа</th><th>Вес</th><th>Ответственный за меры</th><th>Срок, дн.</th><th>Ключевые слова (через запятую)</th><th>Типовые меры</th><th></th></tr></thead><tbody>`;
+  s.types.forEach((t, i) => {
+    h += `<tr><td><input type="text" data-t="${i}" data-f="name" value="${esc(t.name)}"></td><td><input type="text" data-t="${i}" data-f="short" value="${esc(t.short || '')}" style="min-width:90px"></td>
+      <td><select data-t="${i}" data-f="group">${Object.entries(GROUPS).map(([k, g]) => `<option value="${k}" ${t.group === k ? 'selected' : ''}>${g.label}</option>`).join('')}</select></td>
+      <td><input type="number" min="0" step="1" data-t="${i}" data-f="weight" value="${t.weight}" ${t.group === 'system' ? 'title="Системные проблемы не засчитываются сотрудникам"' : ''}></td>
+      <td><input type="text" data-t="${i}" data-f="responsible" value="${esc(t.responsible)}"></td><td><input type="number" min="0" data-t="${i}" data-f="days" value="${t.days}"></td>
+      <td><textarea rows="4" data-t="${i}" data-f="keywords">${esc(t.keywords.join(', '))}</textarea></td><td><textarea rows="4" data-t="${i}" data-f="measures">${esc(t.measures)}</textarea></td>
+      <td><button class="btn small danger" data-tdel="${i}" title="Удалить вид нарушения">✕</button></td></tr>`;
+  });
+  const o = s.overdue;
+  h += `<tr><td><input type="text" data-o="overdue" data-f="name" value="${esc(o.name)}"></td><td></td><td class="note">Вычисляется по датам</td><td class="note">—</td>
+    <td><input type="text" data-o="overdue" data-f="responsible" value="${esc(o.responsible)}"></td><td><input type="number" min="0" data-o="overdue" data-f="days" value="${o.days}"></td>
+    <td class="note">Дата ответа позже контрольного срока или ответа нет, а срок прошёл</td><td><textarea rows="4" data-o="overdue" data-f="measures">${esc(o.measures)}</textarea></td><td></td></tr>
+    </tbody></table></div>
+    <div class="grid2" style="margin-top:16px">
+      <div class="card"><h3>Результат рассмотрения: подтверждено</h3><textarea rows="3" data-list="confirmYes">${esc(s.confirmYes.join(', '))}</textarea>
+        <h3 style="margin-top:12px">Результат рассмотрения: не подтверждено</h3><textarea rows="3" data-list="confirmNo">${esc(s.confirmNo.join(', '))}</textarea>
+        <p class="note">Сначала проверяются слова «не подтверждено». Остальные результаты считаются «не проверено». Подтверждённое нарушение удваивает балл обращения.</p></div>
+      <div class="card"><h3>Рост обращений по услугам</h3>
+        <p>Порог роста, %: <input type="number" min="0" data-o="growth" data-f="pct" value="${s.growth.pct}"> · не менее обращений: <input type="number" min="1" data-o="growth" data-f="min" value="${s.growth.min}"></p>
+        <h3>Индекс риска</h3><p class="note">Балл обращения = сумма весов видов нарушений (кроме системных); если нарушение подтверждено проверкой — балл × 2. Индекс сотрудника или ЦОН — сумма баллов его обращений за месяц.</p></div>
+    </div>`;
+  $('#tab-settings').innerHTML = h;
+}
+let settingsTimer = null;
+function onSettingsChanged() {
+  saveSettings();
+  clearTimeout(settingsTimer);
+  settingsTimer = setTimeout(() => { classifyAll(); renderAll(true); }, 50);
+}
+function splitList(v) { return v.split(/[,;\n]+/).map(x => x.trim()).filter(Boolean); }
+
+/* =====================================================================
+   Печать (FR-27)
+   ===================================================================== */
+function printReport() {
+  if (!S.records.length) { alert('Нет данных для отчёта. Загрузите выгрузки.'); return; }
+  renderAll();
+  const f = S.filter;
+  $('#printHeader').innerHTML = `<h1>Анализ обращений граждан по ЦОН (e-Otinish и 1414)</h1>
+    <div>Период: <b>${monthLabel(f.month)}</b> · Канал: ${f.ch === 'all' ? 'все' : SRC_LABEL[f.ch]} · Филиал: ${f.br === 'all' ? 'все' : esc(f.br)} · Сформировано: ${fmtDate(new Date())}</div>
+    <div class="note">Для служебного пользования. Содержит персональные данные. Лица в рейтингах и колонке «Допустившие» указаны предварительно до подтверждения служебной проверкой или решением Совета по этике.</div>`;
+  document.querySelectorAll('.tab.printable').forEach((t, i) => t.classList.toggle('first-print', i === 0));
+  window.print();
+}
+
+/* =====================================================================
+   Навигация и общий рендер
+   ===================================================================== */
+const TABS = [['upload', 'Загрузка'], ['overview', 'Обзор месяца'], ['employees', 'Сотрудники'], ['deadlines', 'Сроки рассмотрения'], ['cons', 'ЦОНы'], ['services', 'Услуги и темы'], ['recs', 'Рекомендации'], ['appeals', 'Обращения'], ['settings', 'Словари и веса']];
+function renderTabs() {
+  $('#tabs').innerHTML = TABS.map(([k, l]) => `<button data-tab="${k}" class="${S.tab === k ? 'active' : ''}">${l}</button>`).join('');
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.id === 'tab-' + S.tab));
+}
+function renderAll(skipSettings) {
+  CACHE = null;
+  renderTabs(); renderUpload(); renderOverview(); renderEmployees(); renderDeadlines(); renderCons(); renderServices(); renderRecs(); renderAppeals();
+  if (!skipSettings) renderSettings();
+  const n = S.filter.month ? current().cur.total : 0;
+  $('#filterNote').textContent = S.records.length ? `В выборке: ${fmtInt(n)} ${plural(n, 'обращение', 'обращения', 'обращений')}` : '';
+}
+function renderFiltered() {
+  CACHE = null;
+  renderOverview(); renderEmployees(); renderDeadlines(); renderCons(); renderServices(); renderRecs(); renderAppeals();
+  const n = current().cur.total;
+  $('#filterNote').textContent = `В выборке: ${fmtInt(n)} ${plural(n, 'обращение', 'обращения', 'обращений')}`;
+}
+
+/* =====================================================================
+   Обработчики событий
+   ===================================================================== */
+function bind() {
+  $('#tabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) { S.tab = b.dataset.tab; renderTabs(); window.scrollTo(0, 0); } });
+  $('#fMonth').addEventListener('change', e => { S.filter.month = e.target.value; S.ui.apLimit = 300; renderFiltered(); });
+  $('#fCh').addEventListener('change', e => { S.filter.ch = e.target.value; S.ui.apLimit = 300; renderFiltered(); });
+  $('#fBr').addEventListener('change', e => { S.filter.br = e.target.value; S.ui.apLimit = 300; renderFiltered(); });
+  $('#btnPrint').addEventListener('click', printReport);
+  $('#btnDemo').addEventListener('click', () => {
+    if (S.files.length && !confirm('Заменить загруженные файлы демо-данными?')) return;
+    S.files = makeDemo().map(d => { const f = {id:d.name, name:d.name}; setupFile(f, d.rows); return f; });
+    S.recs = {};
+    rebuild(); S.tab = 'overview'; renderTabs();
+  });
+  $('#modalClose').addEventListener('click', closeModal);
+  $('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  // Загрузка файлов (FR-1)
+  const fi = $('#fileInput');
+  fi.addEventListener('change', () => { handleFiles([...fi.files]); fi.value = ''; });
+  const up = $('#tab-upload');
+  up.addEventListener('click', e => {
+    if (e.target.closest('#drop')) fi.click();
+    const rm = e.target.closest('[data-remove]');
+    if (rm) { S.files.splice(+rm.dataset.remove, 1); rebuild(); }
+  });
+  up.addEventListener('dragover', e => { e.preventDefault(); $('#drop')?.classList.add('over'); });
+  up.addEventListener('dragleave', e => { if (e.target.id === 'drop') e.target.classList.remove('over'); });
+  up.addEventListener('drop', e => { e.preventDefault(); $('#drop')?.classList.remove('over'); handleFiles([...e.dataTransfer.files]); });
+  document.addEventListener('dragover', e => e.preventDefault());
+  document.addEventListener('drop', e => { if (!e.target.closest('#tab-upload')) { e.preventDefault(); if (e.dataTransfer.files.length) { S.tab = 'upload'; renderTabs(); handleFiles([...e.dataTransfer.files]); } } });
+  up.addEventListener('change', e => {
+    const t = e.target, d = t.dataset;
+    if (d.ftype != null) { S.files[+d.ftype].type = t.value; }
+    else if (d.fsrc != null) { S.files[+d.fsrc].source = t.value; }
+    else if (d.fhead != null) { const f = S.files[+d.fhead]; const v = Math.max(1, Math.min(f.raw.length, +t.value || 1)); applyHeaderRow(f, v - 1); }
+    else if (d.fmap != null) { const f = S.files[+d.fmap]; (f.type === 'workload' ? f.wmap : f.map)[d.field] = +t.value; }
+    else return;
+    rebuild();
+  });
+
+  // Клики по строкам и графикам
+  document.addEventListener('click', e => {
+    const tx = e.target.closest('.txt.clamp, .txt.open');
+    if (tx) { tx.classList.toggle('clamp'); tx.classList.toggle('open'); return; }
+    const c = e.target.closest('[data-click]');
+    if (!c) return;
+    const [kind, ...rest] = c.dataset.click.split('|'), key = rest.join('|');
+    const {cur} = current();
+    if (kind === 'emp') { const x = cur.emp.get(key); if (x) openList(`${x.name} — обращения за ${monthLabel(cur.month)}`, x.recs, `Индекс риска: ${x.score}. Сведения предварительные — до проверки.`); }
+    if (kind === 'con') { const x = cur.con.get(key); if (x) openList(`${x.name} — обращения за ${monthLabel(cur.month)}`, x.recs); }
+    if (kind === 'exe') { const x = cur.exe.get(key); if (x) openList(`${x.name} — просроченные обращения`, x.recs); }
+    if (kind === 'svc') { const x = cur.svc.get(key); if (x) openList(`${x.name} — обращения за ${monthLabel(cur.month)}`, x.recs); }
+    if (kind === 'type') { const t = S.compiled.byId[key]; openList(`${t.name} — ${monthLabel(cur.month)}`, cur.recs.filter(r => r.v.includes(key))); }
+  });
+
+  // Сотрудники
+  const emp = $('#tab-employees');
+  emp.addEventListener('input', e => { if (e.target.id === 'empSearch') { S.ui.empSearch = e.target.value; const pos = e.target.selectionStart; renderEmployees(); const i = $('#empSearch'); i.focus(); i.setSelectionRange(pos, pos); } });
+  emp.addEventListener('change', e => { if (e.target.id === 'empGroup') { S.ui.empGroup = e.target.value; renderEmployees(); } });
+  emp.addEventListener('click', e => {
+    const th = e.target.closest('[data-sort]');
+    if (th) { const k = th.dataset.sort; S.ui.empDir = S.ui.empSort === k ? -S.ui.empDir : (k === 'name' ? 1 : -1); S.ui.empSort = k; renderEmployees(); }
+    if (e.target.id === 'empCsv') exportEmployees();
+  });
+  $('#tab-cons').addEventListener('click', e => { if (e.target.id === 'conCsv') exportCons(); });
+
+  // Обращения
+  const ap = $('#tab-appeals');
+  let apTimer;
+  ap.addEventListener('input', e => { if (e.target.id === 'apSearch') { S.ui.apSearch = e.target.value; clearTimeout(apTimer); apTimer = setTimeout(() => { const pos = e.target.selectionStart; S.ui.apLimit = 300; renderAppeals(); const i = $('#apSearch'); i.focus(); i.setSelectionRange(pos, pos); }, 200); } });
+  ap.addEventListener('change', e => { if (e.target.id === 'apType') { S.ui.apType = e.target.value; S.ui.apLimit = 300; renderAppeals(); } });
+  ap.addEventListener('click', e => { if (e.target.id === 'apMore') { S.ui.apLimit += 300; renderAppeals(); } if (e.target.id === 'apCsv') exportAppeals(); });
+
+  // Рекомендации
+  const rc = $('#tab-recs');
+  rc.addEventListener('input', e => { const d = e.target.dataset; if (d.rec != null) { const st = recState(); st.rows[+d.rec][d.f] = e.target.innerText.trim(); st.edited = true; } });
+  rc.addEventListener('change', e => { const d = e.target.dataset; if (d.recStatus != null) { const st = recState(); st.rows[+d.recStatus].status = e.target.value; st.edited = true; e.target.nextElementSibling.textContent = e.target.value; } });
+  rc.addEventListener('click', e => {
+    const st = recState();
+    if (e.target.id === 'recAdd') { st.rows.push({problem:'', basis:'', who:'', measures:'', resp:'', due:'', status:'Новая'}); st.edited = true; renderRecs(); }
+    if (e.target.id === 'recRegen') { if (!st.edited || confirm('Сформировать таблицу заново? Ручные правки будут потеряны.')) { recState(true); renderRecs(); } }
+    if (e.target.id === 'recCsv') exportRecs();
+    const del = e.target.closest('[data-rec-del]');
+    if (del && confirm('Удалить строку рекомендации?')) { st.rows.splice(+del.dataset.recDel, 1); st.edited = true; renderRecs(); }
+  });
+
+  // Настройки
+  const se = $('#tab-settings');
+  se.addEventListener('change', e => {
+    const t = e.target, d = t.dataset, s = S.settings;
+    if (d.t != null) {
+      const ty = s.types[+d.t];
+      if (d.f === 'keywords') ty.keywords = splitList(t.value);
+      else if (d.f === 'weight' || d.f === 'days') ty[d.f] = Math.max(0, +t.value || 0);
+      else ty[d.f] = t.value;
+      if (d.f === 'group') renderSettings();
+    } else if (d.o) s[d.o][d.f] = (d.f === 'days' || d.f === 'pct' || d.f === 'min') ? Math.max(0, +t.value || 0) : t.value;
+    else if (d.list) s[d.list] = splitList(t.value);
+    else return;
+    onSettingsChanged();
+  });
+  se.addEventListener('click', e => {
+    const id = e.target.id;
+    if (id === 'setSave') download('словари_и_веса_ЦОН.json', new Blob([JSON.stringify(S.settings, null, 2)], {type:'application/json'}));
+    if (id === 'setLoad') $('#settingsInput').click();
+    if (id === 'setAdd') { S.settings.types.push({id:'custom_' + Date.now(), name:'Новый вид нарушения', short:'Новый', group:'standard', weight:1, responsible:'', days:15, keywords:[], measures:''}); renderSettings(); onSettingsChanged(); }
+    if (id === 'setReset' && confirm('Вернуть исходные словари и веса? Текущие настройки будут потеряны.')) { S.settings = structuredClone(DEFAULT_SETTINGS); renderSettings(); onSettingsChanged(); }
+    const del = e.target.closest('[data-tdel]');
+    if (del && confirm('Удалить вид нарушения «' + S.settings.types[+del.dataset.tdel].name + '»?')) { S.settings.types.splice(+del.dataset.tdel, 1); renderSettings(); onSettingsChanged(); }
+  });
+  $('#settingsInput').addEventListener('change', async e => {
+    const file = e.target.files[0]; e.target.value = '';
+    if (!file) return;
+    try {
+      const s = JSON.parse(await file.text());
+      if (!s || !Array.isArray(s.types)) throw new Error('нет списка видов нарушений');
+      s.types.forEach((t, i) => { t.id = t.id || 'custom_' + i; t.keywords = Array.isArray(t.keywords) ? t.keywords : splitList(String(t.keywords || '')); });
+      S.settings = mergeSettings(s); renderSettings(); onSettingsChanged();
+    } catch (err) { alert('Не удалось загрузить настройки: ' + err.message); }
+  });
+
+  // Всплывающие подсказки
+  const tip = $('#tip');
+  document.addEventListener('mousemove', e => {
+    const t = e.target.closest && e.target.closest('[data-tip]');
+    if (!t) { tip.style.display = 'none'; return; }
+    tip.textContent = t.getAttribute('data-tip'); tip.style.display = 'block';
+    const w = tip.offsetWidth, hgt = tip.offsetHeight;
+    tip.style.left = Math.min(e.clientX + 14, innerWidth - w - 8) + 'px';
+    tip.style.top = (e.clientY + 14 + hgt > innerHeight ? e.clientY - hgt - 10 : e.clientY + 14) + 'px';
+  });
+  window.addEventListener('beforeprint', () => { tip.style.display = 'none'; });
+}
+
+/* =====================================================================
+   Демо-данные (синтетические, детерминированные)
+   ===================================================================== */
+function makeDemo() {
+  let seed = 20261002;
+  const rnd = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  const pick = a => a[Math.floor(rnd() * a.length)], ri = (a, b) => a + Math.floor(rnd() * (b - a + 1));
+  const wpick = obj => { const tot = Object.values(obj).reduce((a, b) => a + b, 0); let x = rnd() * tot; for (const k in obj) { x -= obj[k]; if (x <= 0) return k; } return Object.keys(obj)[0]; };
+  const cm = prevMonthKey(monthKey(TODAY)), pm = prevMonthKey(cm);
+  const dt = (d, withTime) => fmtDate(d) + (withTime ? ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) : '');
+  const BR = [
+    {name:'Филиал по г. Астана', cons:{'ЦОН Алматинского района':['Ахметова А.С.', 'Бекова Д.М.', 'Жумабеков Е.К.', 'Иванова О.П.'], 'ЦОН Есильского района':['Касымов Р.Т.', 'Нурланова Г.Б.', 'Петров В.А.'], 'ЦОН Сарыаркинского района':['Сагинтаева М.Н.', 'Тулегенов А.Ж.', 'Уразова К.Р.']}},
+    {name:'Филиал по Карагандинской области', cons:{'ЦОН района Казыбек би':['Федоров И.С.', 'Хасенова Л.А.', 'Шаяхметов Б.О.'], 'ЦОН г. Темиртау':['Ергалиева Н.К.', 'Мухамеджанов Т.Б.', 'Сейтова А.Е.']}}
+  ];
+  const OPS = ['Абдрахманова Ж.К.', 'Голубева Е.В.', 'Даулетов С.М.', 'Исмаилова А.Р.', 'Кенжебаев Н.А.', 'Литвинова Т.С.'];
+  const RISK = {'Жумабеков Е.К.':4, 'Касымов Р.Т.':3, 'Шаяхметов Б.О.':3.5, 'Уразова К.Р.':2, 'Кенжебаев Н.А.':3, 'Мухамеджанов Т.Б.':2.5};
+  const EXE = {'Сейткали А.М.':0.05, 'Рахимова Е.В.':0.1, 'Ли Д.С.':0.45};
+  const SVC = ['Регистрация по месту жительства', 'Выдача удостоверения личности', 'Регистрация транспортных средств', 'Назначение пособий', 'Справка о несудимости', 'Регистрация недвижимости', 'Пенсионные выплаты', 'Получение ЭЦП'];
+  const T = {
+    neutral:['Прошу разъяснить порядок получения услуги «{s}».', 'Прошу сообщить статус моей заявки по услуге «{s}».', 'Выражаю благодарность сотруднику за вежливое и быстрое обслуживание.', 'Прошу предоставить перечень документов для услуги «{s}».', 'Хочу уточнить график работы ЦОН в праздничные дни.', 'Прошу выдать дубликат документа взамен утерянного.', 'Заявление на получение услуги «{s}» через портал, прошу помочь с подачей.'],
+    rude:['Сотрудник грубо разговаривал со мной и повысил голос при других посетителях.', 'Оператор нагрубила, вела себя неуважительно, отказалась представиться.', 'Хамское отношение сотрудника в окне №{n}, прошу принять меры.', 'Сотрудница бросила документы на стол и сказала, что ей некогда.'],
+    corruption:['Сотрудник намекнул, что за деньги может оформить быстрее и без очереди.', 'Требовали деньги за ускорение выдачи документов, считаю это вымогательством.', 'Возле ЦОН посредник предлагает купить талон, сотрудники в курсе.'],
+    absence:['Окно №{n} было закрыто 40 минут, сотрудника не было на месте.', 'Сотрудник ушла на обед раньше времени, люди ждали.', 'Оператор долго разговаривал по телефону на личные темы, не обслуживая граждан.', 'Сотрудник опоздал на работу на час, приём начался позже.'],
+    refusal:['Мне отказали в приёме документов без объяснения причин, хотя все документы были.', 'Не приняли документы, сказали прийти завтра.', 'Сотрудник отказался принять заявление, сославшись на отсутствие времени.'],
+    extradocs:['Требовали дополнительные справки, которых нет в стандарте услуги «{s}».', 'Потребовали принести лишние документы, не предусмотренные стандартом.', 'Сотрудник требовал справку с места работы, хотя для услуги она не нужна.'],
+    wait:['Простоял в очереди более двух часов, работало одно окно.', 'Невозможно дозвониться до 1414, линия занята по 30 минут.', 'Долго ждала ответа оператора, висела на линии 25 минут.', 'Огромные очереди в ЦОН, ожидание по 3 часа.'],
+    resultdelay:['Результат по услуге «{s}» до сих пор не готов, срок выдачи нарушен.', 'Задерживают выдачу документа уже две недели.', 'Документы не выдали в установленный срок, жду результат уже месяц.'],
+    consult:['Оператор дал неверную консультацию, из-за этого я потерял время.', 'Сотрудник некомпетентен, не смог объяснить порядок получения услуги.', 'В 1414 предоставили неправильную информацию о сроках оказания услуги.', 'Разные сотрудники дают разную информацию, отправляют из окна в окно.'],
+    docerrors:['В справке допущена ошибка в фамилии, пришлось приходить повторно.', 'Неверно указаны данные в заявлении, сотрудник перепутал дату рождения.', 'В документе опечатка в номере, прошу исправить.'],
+    tech:['В ЦОН был сбой системы, документы не принимали весь день.', 'Не работает ЭЦП, система зависла при подаче заявления.', 'Программа не работала, сотрудники сказали ждать до завтра.']
+  };
+  const fill = (s, svc) => s.replace('{s}', svc).replace('{n}', ri(1, 12));
+  const pool = Array.from({length:20000}, () => String(ri(500000, 999999)) + String(ri(100000, 999999)));
+  const repeaters = pool.slice(0, 15);
+  const eo = [['Выгрузка обращений ИС e-Otinish за период ' + monthLabel(pm) + ' – ' + monthLabel(cm)], [],
+    ['№ обращения', 'Дата поступления', 'Вид обращения', 'Филиал', 'ЦОН', 'Сотрудник ЦОН', 'Госуслуга', 'Текст обращения', 'Исполнитель', 'Статус', 'Контрольный срок', 'Дата ответа', 'Результат рассмотрения', 'ИИН заявителя']];
+  const cc = [['№ п/п', 'Дата и время звонка', 'Номер телефона', 'Регион', 'Оператор', 'Тематика обращения', 'Суть обращения', 'Результат']];
+  let num = 1000, ccn = 1;
+  for (const mk of [pm, cm]) {
+    const [y, m] = mk.split('-').map(Number), dim = daysInMonth(mk), late = mk === cm;
+    for (let i = 0; i < (late ? 330 : 300); i++) {
+      const b = pick(BR), con = pick(Object.keys(b.cons)), emp = rnd() < 0.86 ? pick(b.cons[con]) : '';
+      const risk = RISK[emp] ? RISK[emp] * (late && emp === 'Жумабеков Е.К.' ? 1.4 : 1) : 1;
+      let svc = pick(SVC), cat = 'neutral';
+      if (late && rnd() < 0.09) { cat = 'tech'; svc = 'Получение ЭЦП'; }
+      else if (rnd() < 0.3 * Math.min(risk, 2.6)) cat = wpick(risk > 1.5 ? {rude:5, corruption:0.8, absence:3, refusal:3, extradocs:2, wait:2, resultdelay:2, consult:3, docerrors:2, tech:0.5} : {rude:1, corruption:0.2, absence:1, refusal:2, extradocs:2, wait:5, resultdelay:3, consult:3, docerrors:2, tech:1.5});
+      let text = fill(pick(T[cat]), svc);
+      if (cat !== 'neutral' && cat !== 'tech' && rnd() < 0.3) text += ' ' + fill(pick(T[pick(['wait', 'consult', 'docerrors'])]), svc);
+      const d = new Date(y, m - 1, ri(1, dim), ri(9, 18), ri(0, 59));
+      const exe = wpick({'Сейткали А.М.':3, 'Рахимова Е.В.':3, 'Ли Д.С.':2});
+      const dl = addDays(d, 15);
+      let ans = rnd() < EXE[exe] ? addDays(d, ri(16, 30)) : addDays(d, ri(2, 14));
+      if (rnd() < 0.05) ans = null;
+      if (ans && ans > TODAY) ans = null;
+      const res = !ans ? '' : cat === 'neutral' ? 'Разъяснено' : cat === 'tech' ? 'Обоснованная, приняты меры' : rnd() < 0.22 * risk ? 'Обоснованная, приняты меры' : rnd() < 0.6 ? 'Необоснованная' : 'Разъяснено';
+      const inn = rnd() < 0.08 ? pick(repeaters) : pick(pool);
+      eo.push(['ЖТ-' + (num++), dt(d, true), cat === 'neutral' ? pick(['Заявление', 'Запрос', 'Жалоба']) : 'Жалоба', b.name, con, emp, svc, text, exe,
+        ans ? 'Исполнено' : 'На рассмотрении', fmtDate(dl), ans ? fmtDate(ans) : '', res, inn]);
+    }
+    for (let i = 0; i < (late ? 520 : 480); i++) {
+      const op = pick(OPS), risk = RISK[op] || 1;
+      let svc = pick(SVC), cat = 'neutral';
+      if (late && rnd() < 0.06) { cat = 'tech'; svc = 'Получение ЭЦП'; }
+      else if (rnd() < 0.22 * risk) cat = wpick({rude:risk > 1.5 ? 4 : 1, wait:5, consult:5, resultdelay:1});
+      const d = new Date(y, m - 1, ri(1, dim), ri(8, 20), ri(0, 59));
+      cc.push([ccn++, dt(d, true), '+7 7' + (rnd() < 0.08 ? pick(repeaters).slice(0, 9) : pick(pool).slice(0, 9)), pick(BR).name, op, svc, fill(pick(T[cat]), svc),
+        cat === 'neutral' ? 'Консультация предоставлена' : pick(['Передано руководителю смены', 'Обоснованная, приняты меры', 'Необоснованная', 'Консультация предоставлена'])]);
+    }
+  }
+  const wl = [['ФИО сотрудника', 'Количество обслуженных граждан / звонков']];
+  BR.forEach(b => Object.values(b.cons).flat().forEach(n => wl.push([n, ri(600, 1500)])));
+  OPS.forEach(n => wl.push([n, ri(900, 1600)]));
+  return [{name:'демо_e-Otinish.xlsx', rows:eo}, {name:'демо_1414.csv', rows:cc}, {name:'демо_нагрузка.csv', rows:wl}];
+}
+
+/* ===================================================================== */
+S.settings = loadSettings();
+compileSettings();
+bind();
+renderAll();
+</script>
+</body>
+</html>
