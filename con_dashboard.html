@@ -576,7 +576,7 @@ const S = {
   filter: {month:'', ch:'all', br:'all'},
   recs: {}, version: 0,
   tab: 'upload',
-  ui: {empSearch:'', empGroup:'all', empSort:'score', empDir:-1, apSearch:'', apType:'all', apLimit:300}
+  ui: {empSearch:'', empGroup:'all', empSort:'score', empDir:-1, empCharts:['score', 'per1000'], empOrder:'asc',apSearch:'', apType:'all', apLimit:300}
 };
 const LS_KEY = 'conDashboard.settings.v1';
 function loadSettings() {
@@ -813,7 +813,7 @@ function barPath(x, y, w, h, r) {
   return `M${x},${y}h${w - r}a${r},${r} 0 0 1 ${r},${r}v${h - 2 * r}a${r},${r} 0 0 1 ${-r},${r}h${-(w - r)}z`;
 }
 function hbarChart(items, opts = {}) {
-  items = items.filter(i => i.value > 0).slice(0, opts.max || 10);
+  items = (opts.keepZero ? items : items.filter(i => i.value > 0)).slice(0, opts.max || 10);
   if (!items.length) return '<p class="empty">Нет данных за выбранный период</p>';
   const W = 640, labelW = 236, rowH = 26, barH = 14, padT = 2;
   const plotW = W - labelW - 56, H = items.length * rowH + padT * 2;
@@ -821,7 +821,7 @@ function hbarChart(items, opts = {}) {
   const vf = opts.fmt || fmtInt;
   let s = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title || '')}">`;
   items.forEach((it, i) => {
-    const y = padT + i * rowH, w = Math.max(2, it.value / max * plotW);
+    const y = padT + i * rowH, w = it.value > 0 ? Math.max(2, it.value / max * plotW) : 0;
     s += `<g class="bar-row" data-tip="${esc(it.tip || it.label + ': ' + vf(it.value))}"${it.click ? ` data-click="${esc(it.click)}"` : ''}>`
       + `<rect class="hit" x="0" y="${y}" width="${W}" height="${rowH}" rx="4"/>`
       + `<text x="${labelW - 8}" y="${y + rowH / 2}" text-anchor="end" dominant-baseline="central">${esc(trunc(it.label, 36))}</text>`
@@ -1035,6 +1035,30 @@ function employeeRows() {
   rows.sort((a, b) => ((a[k] ?? -1e9) > (b[k] ?? -1e9) ? 1 : (a[k] ?? -1e9) < (b[k] ?? -1e9) ? -1 : 0) * d || b.n - a.n);
   return rows;
 }
+/* Графики по всем сотрудникам с выбором показателя и порядка сортировки */
+const EMP_METRICS = {score:'Индекс риска', n:'Обращений', viol:'С признаками нарушений', ethics:'Этика', standard:'Стандарт', confirmed:'Подтверждено', per1000:'На 1000 обслуживаний'};
+function employeeCharts(rows, hasLoad) {
+  if (!rows.length) return '';
+  const ui = S.ui, asc = ui.empOrder === 'asc';
+  const card = (slot) => {
+    let m = ui.empCharts[slot];
+    if (m === 'per1000' && !hasLoad) m = 'n';
+    const vf = m === 'per1000' ? fmt1 : fmtInt;
+    const data = rows.filter(e => e[m] != null)
+      .sort((a, b) => (asc ? a[m] - b[m] : b[m] - a[m]) || a.name.localeCompare(b.name, 'ru'))
+      .map(e => ({label:e.name, value:e[m], click:'emp|' + e.key,
+        tip:`${e.name} · ${e.con}\n${EMP_METRICS[m]}: ${vf(e[m])}\nИндекс риска: ${e.score} · обращений: ${e.n}`}));
+    const opts = Object.entries(EMP_METRICS).filter(([k]) => k !== 'per1000' || hasLoad)
+      .map(([k, l]) => `<option value="${k}" ${k === m ? 'selected' : ''}>${l}</option>`).join('');
+    return `<div class="card"><div class="toolbar"><h3 style="margin:0">${EMP_METRICS[m]}</h3><span class="grow"></span>
+      <select class="no-print" data-emp-chart="${slot}" aria-label="Показатель графика">${opts}</select></div>
+      ${hbarChart(data, {max:Infinity, keepZero:true, fmt:vf, title:EMP_METRICS[m]})}</div>`;
+  };
+  return `<div class="toolbar" style="margin-top:12px"><h3 style="margin:0">Графики по сотрудникам</h3><span class="grow"></span>
+    <select class="no-print" id="empOrder" aria-label="Порядок сортировки"><option value="asc" ${asc ? 'selected' : ''}>От меньшего к большему</option><option value="desc" ${asc ? '' : 'selected'}>От большего к меньшему</option></select>
+    <span class="print-only note">${asc ? 'от меньшего к большему' : 'от большего к меньшему'}</span></div>
+    <div class="grid2" style="margin-bottom:16px">${card(0)}${card(1)}</div>`;
+}
 const empLabel = e => e.confirmed ? '<span class="badge bad">есть подтверждённые</span>' : e.viol ? '<span class="badge warn">требует проверки</span>' : '';
 const empLabelText = e => e.confirmed ? 'есть подтверждённые' : e.viol ? 'требует проверки' : '';
 function renderEmployees() {
@@ -1050,6 +1074,7 @@ function renderEmployees() {
   if (!cur.emp.size) h += `<div class="warnbox">В выгрузках за этот месяц нет столбца с ФИО сотрудника ЦОН или он пуст — рейтинг сотрудников не строится. Используйте рейтинг ЦОН.</div>`;
   if (cur.noEmp) h += `<p class="note">Обращений без указания сотрудника: ${fmtInt(cur.noEmp)} — в рейтинг не попадают.</p>`;
   if (!hasLoad) h += `<p class="note">Нагрузка не загружена — «На 1000 обслуживаний» не рассчитывается. Сравнение в абсолютных числах менее справедливо для сотрудников с разной нагрузкой.</p>`;
+  h += employeeCharts(rows, hasLoad);
   h += `<div class="table-wrap"><table><thead><tr><th>#</th>${th('name', 'Сотрудник', '')}<th>ЦОН</th>${th('n', 'Обращений')}${th('ethics', 'Этика')}${th('standard', 'Стандарт')}${th('confirmed', 'Подтверждено')}${th('per1000', 'На 1000 обслуж.')}${th('score', 'Индекс риска')}${th('delta', 'Изменение')}<th>Состав нарушений</th><th>Метка</th></tr></thead><tbody>`;
   rows.forEach((e, i) => {
     h += `<tr class="clickable" data-click="emp|${esc(e.key)}"><td class="num">${i + 1}</td><td style="white-space:nowrap"><b>${esc(e.name)}</b></td><td>${esc(e.con)}</td><td class="num">${e.n}</td><td class="num">${e.ethics || ''}</td><td class="num">${e.standard || ''}</td><td class="num">${e.confirmed || ''}</td>
@@ -1405,7 +1430,14 @@ function bind() {
   // Сотрудники
   const emp = $('#tab-employees');
   emp.addEventListener('input', e => { if (e.target.id === 'empSearch') { S.ui.empSearch = e.target.value; const pos = e.target.selectionStart; renderEmployees(); const i = $('#empSearch'); i.focus(); i.setSelectionRange(pos, pos); } });
-  emp.addEventListener('change', e => { if (e.target.id === 'empGroup') { S.ui.empGroup = e.target.value; renderEmployees(); } });
+  emp.addEventListener('change', e => {
+    const t = e.target;
+    if (t.id === 'empGroup') S.ui.empGroup = t.value;
+    else if (t.id === 'empOrder') S.ui.empOrder = t.value;
+    else if (t.dataset.empChart != null) S.ui.empCharts[+t.dataset.empChart] = t.value;
+    else return;
+    renderEmployees();
+  });
   emp.addEventListener('click', e => {
     const th = e.target.closest('[data-sort]');
     if (th) { const k = th.dataset.sort; S.ui.empDir = S.ui.empSort === k ? -S.ui.empDir : (k === 'name' ? 1 : -1); S.ui.empSort = k; renderEmployees(); }
